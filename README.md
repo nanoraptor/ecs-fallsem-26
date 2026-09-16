@@ -5,7 +5,7 @@
 This is a cyber-physical system designed to combat soil acidification and nutrient runoff—major environmental concerns in modern chemistry. By integrating IoT sensors with a Random Forest Machine Learning model, the system identifies the soil's chemical state and provides precise neutralization strategies through recommendations of crops and fertilizers.
 
 **Course:** ECS2001 - Project Ideation, Design and Prototyping  
-**Created by:** Rahul, Abhiram, Nikhil, Sanjeev, Saketh
+**Created by:** Rahul, Abhiram, Nikhil, Sanjeev, Saketh and Shyam
 
 ## Table of Contents
 
