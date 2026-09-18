@@ -64,11 +64,14 @@ py -m pip install pandas joblib pyserial scikit-learn flask
 
 Start the local web dashboard:
 ```bash
-# Linux / macOS
+# Simulation mode (default)
 python3 app/app.py
 
-# Windows
-py app/app.py
+# Wi-Fi mode (listen for ESP32)
+python3 app/app.py --esp32
+
+# Serial mode (connect to ESP32 via USB)
+python3 app/app.py --serial
 ```
 Open `http://127.0.0.1:5000` in your browser.
 
@@ -106,6 +109,7 @@ py scripts/ser_script.py --port=COM3
 - `--sim` → explicitly starts in **SIM** mode
 - `--serial <PORT>` → starts in **SERIAL** mode
 - `--serial` → starts in **SERIAL** mode and auto-detects the port if `/dev/ttyACM0` is unavailable
+- `--esp32` → starts the app in **Wi-Fi Mode** listening on `0.0.0.0` for POST requests from the ESP32.
 - `--lock-mode` → hides the mode selector and prevents switching modes during runtime
 - `--no-check` → skips strict pH input range validation (chemical status still shown)
 

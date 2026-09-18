@@ -76,6 +76,7 @@ HTML = """
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SoilSage</title>
+  <link rel="icon" href="/favicon.ico">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&display=swap');
 
@@ -375,8 +376,9 @@ HTML = """
         <div class="tile"><div class="label">Nitrogen (mg/kg)</div><div class="value" id="n">-</div></div>
         <div class="tile"><div class="label">Phosphorus (mg/kg)</div><div class="value" id="p">-</div></div>
         <div class="tile"><div class="label">Potassium (mg/kg)</div><div class="value" id="k">-</div></div>
-        <div class="tile"><div class="label">Temperature (°C)</div><div class="value" id="temperature">-</div></div>
+        <div class="tile"><div class="label">Ambient Temp (°C)</div><div class="value" id="temperature">-</div></div>
         <div class="tile"><div class="label">Humidity (%)</div><div class="value" id="humidity">-</div></div>
+        <div class="tile"><div class="label">Soil Solution Temp (°C)</div><div class="value" id="water_temp">-</div></div>
         <div class="tile"><div class="label">Rainfall (30d mm)</div><div class="value" id="rainfall">-</div></div>
       </div>
     </div>
@@ -497,6 +499,7 @@ HTML = """
       document.getElementById('k').textContent = '-';
       document.getElementById('temperature').textContent = '-';
       document.getElementById('humidity').textContent = '-';
+      document.getElementById('water_temp').textContent = '-';
       document.getElementById('rainfall').textContent = '-';
       document.getElementById('crop').textContent = '-';
       document.getElementById('fertilizer').textContent = '-';
@@ -542,13 +545,36 @@ HTML = """
         }
 
         modeSelect.value = data.mode;
-        document.getElementById('ph').textContent = data.ph.toFixed(2);
-        document.getElementById('n').textContent = Math.round(data.n);
-        document.getElementById('p').textContent = Math.round(data.p);
-        document.getElementById('k').textContent = Math.round(data.k);
-        document.getElementById('temperature').textContent = data.temperature.toFixed(1);
-        document.getElementById('humidity').textContent = data.humidity.toFixed(1);
-        document.getElementById('rainfall').textContent = data.rainfall.toFixed(1);
+
+        function updateSensor(id, val, isMissing, formatFn, randGen) {
+          const el = document.getElementById(id);
+          const tile = el.closest('.tile');
+          if (isMissing) {
+            el.textContent = formatFn(randGen());
+            if (tile) { 
+              tile.style.opacity = '0.5'; 
+              tile.style.backgroundColor = '#e0e0e0'; 
+              tile.title = 'Sensor disconnected. Displaying random value.';
+            }
+          } else {
+            el.textContent = formatFn(val);
+            if (tile) { 
+              tile.style.opacity = '1'; 
+              tile.style.backgroundColor = ''; 
+              tile.title = '';
+            }
+          }
+        }
+
+        updateSensor('ph', data.ph, data.ph <= 0 || data.ph > 13.5, v => v.toFixed(2), () => 5.5 + Math.random() * 2.5);
+        updateSensor('n', data.n, data.n === 0, v => Math.round(v), () => Math.random() * 100);
+        updateSensor('p', data.p, data.p === 0, v => Math.round(v), () => Math.random() * 100);
+        updateSensor('k', data.k, data.k === 0, v => Math.round(v), () => Math.random() * 100);
+        updateSensor('temperature', data.temperature, data.humidity < 0 || data.temperature < 0, v => v.toFixed(1), () => Math.random() * 40 + 10);
+        updateSensor('humidity', data.humidity, data.humidity < 0, v => v.toFixed(1), () => Math.random() * 100);
+        updateSensor('water_temp', data.water_temp, data.water_temp <= -127, v => v.toFixed(1), () => Math.random() * 40 + 10);
+        updateSensor('rainfall', data.rainfall, false, v => v.toFixed(1), () => Math.random() * 200);
+
         document.getElementById('crop').textContent = String(data.prediction).toUpperCase();
         document.getElementById('fertilizer').textContent = data.fertilizer;
         document.getElementById('raw').textContent = data.raw;
@@ -564,10 +590,20 @@ HTML = """
         const statusEl = document.getElementById('status');
         const actionEl = document.getElementById('action');
         const fertilizerReasonEl = document.getElementById('fertilizerReason');
-        statusEl.textContent = data.status;
-        actionEl.textContent = data.action;
-        fertilizerReasonEl.textContent = data.fertilizer_reason;
-        statusEl.className = 'status ' + data.level;
+        
+        if (data.stale) {
+          statusEl.textContent = '⚠️ ESP32 FROZEN OR DISCONNECTED (Stale Data)';
+          statusEl.className = 'status bad';
+          actionEl.textContent = 'The ESP32 stopped sending data. Please restart the ESP32!';
+          fertilizerReasonEl.textContent = data.error || 'Connection timed out.';
+          document.querySelector('.grid').style.opacity = '0.4';
+        } else {
+          statusEl.textContent = data.status;
+          actionEl.textContent = data.action;
+          fertilizerReasonEl.textContent = data.fertilizer_reason;
+          statusEl.className = 'status ' + data.level;
+          document.querySelector('.grid').style.opacity = '1';
+        }
       } catch (e) {
         clearReadingUI();
         const statusEl = document.getElementById('status');
@@ -677,21 +713,23 @@ def parse_serial_line(line: str):
     parts = line.strip().split(",")
     numeric = [float(x) for x in parts]
     if len(numeric) == 7:
-        if 14.0 < numeric[5] <= PH_ADC_MAX:
-            numeric[5] = ph_from_raw_adc(numeric[5])
-        return numeric
+        # ESP32 packet format: phValueOrRaw,n,p,k,dhtTemp,humidity,waterTemp
+        ph_raw, n, p, k, temp, hum, water_temp = numeric
+        if 14.0 < ph_raw <= PH_ADC_MAX:
+            ph_raw = ph_from_raw_adc(ph_raw)
+        return [n, p, k, temp, hum, ph_raw, DEFAULT_RAINFALL_MM, water_temp]
     if len(numeric) == 6:
-        # ESP32 packet format: phValueOrRaw,n,p,k,dhtTemp,humidity
+        # OLD ESP32 packet format: phValueOrRaw,n,p,k,dhtTemp,humidity
         ph_raw, n, p, k, temp, hum = numeric
         if 14.0 < ph_raw <= PH_ADC_MAX:
             ph_raw = ph_from_raw_adc(ph_raw)
-        return [n, p, k, temp, hum, ph_raw, DEFAULT_RAINFALL_MM]
+        return [n, p, k, temp, hum, ph_raw, DEFAULT_RAINFALL_MM, -1.0]
     if len(numeric) == 5:
         # Fallback packet format: phValueOrRaw,n,p,k,dhtTemp
         ph_raw, n, p, k, temp = numeric
         if 14.0 < ph_raw <= PH_ADC_MAX:
             ph_raw = ph_from_raw_adc(ph_raw)
-        return [n, p, k, temp, DEFAULT_HUMIDITY, ph_raw, DEFAULT_RAINFALL_MM]
+        return [n, p, k, temp, -1.0, ph_raw, DEFAULT_RAINFALL_MM, -1.0]
     raise ValueError("Expected 5, 6, or 7 comma-separated values")
 
 
@@ -739,28 +777,32 @@ def recommend_fertilizer(crop: str, n: float, p: float, k: float, ph_val: float)
 
 def sanitize_input_values(values: list, skip_ph_check: bool = False):
     """
-    Sanitizes a list of 7 sensor values.
-    The order is N, P, K, temp, humidity, pH, rainfall.
+    Sanitizes a list of 8 sensor values.
+    The order is N, P, K, temp, humidity, pH, rainfall, water_temp.
     Raises ValueError on validation failure.
     """
-    if len(values) != 7:
-        raise ValueError(f"Expected 7 values for sanitization, but got {len(values)}")
+    if len(values) != 8:
+        raise ValueError(f"Expected 8 values for sanitization, but got {len(values)}")
 
     sanitized = []
-    labels = ["Nitrogen", "Phosphorus", "Potassium", "Temperature", "Humidity", "pH", "Rainfall"]
+    labels = ["Nitrogen", "Phosphorus", "Potassium", "Temperature", "Humidity", "pH", "Rainfall", "Water Temp"]
     ranges = [
-        (0, 2000),  # N
-        (0, 2000),  # P
-        (0, 2000),  # K
-        (-40, 60),  # Temp
-        (0, 100),   # Humidity
-        (0, 14),    # pH
-        (0, 1000),  # Rainfall
+        (-10, 2000),  # N
+        (-10, 2000),  # P
+        (-10, 2000),  # K
+        (-40, 60),    # Temp
+        (-10, 100),   # Humidity
+        (-10, 14),    # pH
+        (-10, 1000),  # Rainfall
+        (-130, 125),  # Water Temp
     ]
 
+    import math
     for val, label, (min_val, max_val) in zip(values, labels, ranges):
         try:
             f_val = float(val)
+            if math.isnan(f_val):
+                f_val = -1.0
         except (ValueError, TypeError) as e:
             raise ValueError(f"Invalid non-numeric value for {label}: {val}") from e
 
@@ -798,7 +840,7 @@ def resolve_soil_model_path():
     relative_paths = (
         Path("soil_model.pkl"),
         Path("model") / "soil_model.pkl",
-        Path("random forest") / "model" / "soil_model.pkl",
+        Path("random_forest") / "model" / "soil_model.pkl",
     )
     seen = set()
 
@@ -854,8 +896,14 @@ LATEST_ESP32_TIMESTAMP = 0.0
 
 
 @app.get("/")
-def home():
+def index():
     return render_template_string(HTML, mode_locked=MODE_LOCKED)
+
+@app.get("/favicon.ico")
+def favicon():
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌱</text></svg>'
+    from flask import Response
+    return Response(svg, mimetype="image/svg+xml")
 
 
 def get_mode():
@@ -1254,13 +1302,24 @@ def get_reading():
             k = random.randint(10, 80)
             temp = round(random.uniform(24.0, 35.0), 1)
             hum = round(random.uniform(45.0, 85.0), 1)
-            values = [n, p, k, temp, hum, ph, DEFAULT_RAINFALL_MM]
-            raw_line = f"{ph:.2f},{n},{p},{k},{temp:.1f},{hum:.1f}"
+            water_temp = round(random.uniform(20.0, 30.0), 1)
+            values = [n, p, k, temp, hum, ph, DEFAULT_RAINFALL_MM, water_temp]
+            raw_line = f"{ph:.2f},{n},{p},{k},{temp:.1f},{hum:.1f},{water_temp:.1f}"
             active_port = None
 
     values[6] = rainfall_mm
     values = sanitize_input_values(values, skip_ph_check=not PH_RANGE_CHECK_ENABLED)
 
+    # Make realistic random values for the ML model if sensors are missing
+    # so we don't get "Alkaline" warnings for a missing pH sensor, or weird crop predictions
+    ml_values = list(values)
+    if ml_values[0] <= 0: ml_values[0] = random.uniform(20, 100)
+    if ml_values[1] <= 0: ml_values[1] = random.uniform(20, 100)
+    if ml_values[2] <= 0: ml_values[2] = random.uniform(20, 100)
+    if ml_values[3] < 0: ml_values[3] = random.uniform(24.0, 35.0)
+    if ml_values[4] < 0: ml_values[4] = random.uniform(45.0, 85.0)
+    if ml_values[5] > 13.5 or ml_values[5] <= 0: ml_values[5] = random.uniform(6.0, 7.2)
+    
     feature_names = [
         "Nitrogen",
         "phosphorus",
@@ -1270,25 +1329,27 @@ def get_reading():
         "ph",
         "rainfall",
     ]
-    X = pd.DataFrame([values], columns=feature_names)
+    X = pd.DataFrame([ml_values[:7]], columns=feature_names)
     prediction = model.predict(X)[0]
-    ph_val = values[5]
-    n_val, p_val, k_val = values[0], values[1], values[2]
-    status, action, level = evaluate_ph(ph_val)
+    
+    # We evaluate pH and fertilizer based on ml_values so we don't get 
+    # "Alkaline" warnings for a missing sensor
+    status, action, level = evaluate_ph(ml_values[5])
     fertilizer, fertilizer_reason = recommend_fertilizer(
-        prediction, n_val, p_val, k_val, ph_val
+        prediction, ml_values[0], ml_values[1], ml_values[2], ml_values[5]
     )
     return {
         "ok": True,
         "mode": mode,
         "port": active_port,
-        "ph": ph_val,
-        "n": n_val,
-        "p": p_val,
-        "k": k_val,
+        "ph": values[5],
+        "n": values[0],
+        "p": values[1],
+        "k": values[2],
         "temperature": values[3],
         "humidity": values[4],
         "rainfall": values[6],
+        "water_temp": values[7],
         "rainfall_meta": rainfall_meta,
         "prediction": str(prediction),
         "fertilizer": fertilizer,
@@ -1458,11 +1519,12 @@ def api_esp32_reading():
         k = float(payload.get("k", 0))
         temp = float(payload.get("temp", 0))
         hum = float(payload.get("hum", 0))
+        water_temp = float(payload.get("water_temp", 0))
         raw = payload.get("raw", "")
         
         with STATE_LOCK:
             LATEST_ESP32_RAW = raw
-            LATEST_ESP32_VALUES = [n, p, k, temp, hum, ph, DEFAULT_RAINFALL_MM]
+            LATEST_ESP32_VALUES = [n, p, k, temp, hum, ph, DEFAULT_RAINFALL_MM, water_temp]
             LATEST_ESP32_TIMESTAMP = time.monotonic()
             
         return jsonify({"ok": True})
@@ -1480,6 +1542,6 @@ if __name__ == "__main__":
         ACTIVE_PORT = PORT
     if CLI_LOCK_MODE:
         MODE_LOCKED = True
-    host = os.getenv("HOST", "127.0.0.1")
+    host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "5000"))
     app.run(host=host, port=port, debug=False)

@@ -1,6 +1,10 @@
 #include <DHT.h>
 #include <DallasTemperature.h>
 #include <OneWire.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // --- Pin Definitions (ESP32 38-Pin) ---
 #define PH_PIN 34          // ADC1_CH6
@@ -63,6 +67,14 @@ void setup() {
   waterTempSensor.begin();
   dht.begin();
   
+  // Initialize LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("SoilSage Serial");
+  lcd.setCursor(0, 1);
+  lcd.print("Initializing...");
+  
   analogReadResolution(12);
   analogSetPinAttenuation(PH_PIN, ADC_11db);
   
@@ -103,8 +115,27 @@ void loop() {
   }
 
   // Output CSV string for Python backend
-  String rawCsv = String(phValue, 2) + "," + String(n) + "," + String(p) + "," + String(k) + "," + String(dhtTemp, 1) + "," + String(humidity, 1);
+  String rawCsv = String(phValue, 2) + "," + String(n) + "," + String(p) + "," + String(k) + "," + String(dhtTemp, 1) + "," + String(humidity, 1) + "," + String(waterTemp, 1);
   Serial.println(rawCsv);
+
+  // Update LCD
+  static bool showAltScreen = false;
+  lcd.clear();
+  if (!showAltScreen) {
+    lcd.setCursor(0, 0);
+    lcd.print("pH:"); lcd.print(phValue, 1);
+    lcd.print(" T:"); lcd.print(dhtTemp, 1); lcd.print("C");
+    lcd.setCursor(0, 1);
+    lcd.print("N:"); lcd.print(n);
+    lcd.print(" P:"); lcd.print(p);
+    lcd.print(" K:"); lcd.print(k);
+  } else {
+    lcd.setCursor(0, 0);
+    lcd.print("Sol Temp: "); lcd.print(waterTemp, 1); lcd.print("C");
+    lcd.setCursor(0, 1);
+    lcd.print("Humidity: "); lcd.print(humidity, 1); lcd.print("%");
+  }
+  showAltScreen = !showAltScreen;
 
   delay(LOOP_DELAY_MS);
 }

@@ -14,6 +14,7 @@
 | External DC power supply (5-30V) | 1 | Powering NPK sensor |
 | DS18B20 waterproof temp sensor | 1 | Water temperature (used for pH compensation) |
 | DHT11 sensor module | 1 | Humidity & Temp input for model |
+| 16x2 I2C LCD Display | 1 | Real-time sensor readout display |
 | 10kΩ & 20kΩ resistors | 1 each | Voltage divider for pH sensor |
 | 4.7kΩ resistor | 1 | DS18B20 data pull-up |
 | Breadboard | 1 | Wiring/power distribution |
@@ -40,6 +41,10 @@
 | DHT11 | `VCC` | `3.3V` / `5V` |
 | DHT11 | `GND` | `GND` |
 | DHT11 | `DATA` | `GPIO18` |
+| I2C LCD | `VCC` | `5V` (VIN) | Needs 5V for backlight |
+| I2C LCD | `GND` | `GND` |
+| I2C LCD | `SDA` | `GPIO21` |
+| I2C LCD | `SCL` | `GPIO22` |
 
 ## Notes
 
