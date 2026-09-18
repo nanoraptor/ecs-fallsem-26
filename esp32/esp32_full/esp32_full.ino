@@ -9,8 +9,8 @@
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // --- WiFi Credentials ---
-const char* ssid = "rahkickz-lp";
-const char* password = "rigsluck99";
+const char* ssid = "sanjeev";
+const char* password = "123456789";
 
 // --- Flask Server ---
 // Replace with the IP address of the machine running app.py
