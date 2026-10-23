@@ -653,7 +653,13 @@ def get_reading():
         esp32_ts = LATEST_ESP32_TIMESTAMP
 
     if mode == "serial":
-        with SERIAL_LOCK:
+        acquired = SERIAL_LOCK.acquire(timeout=2.0)
+        if not acquired:
+            with LATEST_READING_LOCK:
+                if LATEST_READING is not None:
+                    return dict(LATEST_READING)
+            raise RuntimeError("Serial port busy, retrying...")
+        try:
             with STATE_LOCK:
                 ser = ensure_serial_ready_locked()
                 active_port = ACTIVE_PORT
@@ -702,6 +708,8 @@ def get_reading():
                         f"No valid serial data received yet ({parse_error})"
                     ) from parse_error
                 raise RuntimeError("No serial data received yet")
+        finally:
+            SERIAL_LOCK.release()
 
     elif mode == "esp32":
         if esp32_raw is None:
