@@ -728,15 +728,14 @@ def get_reading():
     values[6] = rainfall_mm
     values = sanitize_input_values(values, skip_ph_check=not PH_RANGE_CHECK_ENABLED)
 
-    # Make realistic random values for the ML model if sensors are missing
-    # so we don't get "Alkaline" warnings for a missing pH sensor, or weird crop predictions
+    # Use standard dataset medians for missing sensors so disconnected probes do not simulate random numbers
     ml_values = list(values)
-    if ml_values[0] < 0: ml_values[0] = random.uniform(20, 100)
-    if ml_values[1] < 0: ml_values[1] = random.uniform(20, 100)
-    if ml_values[2] < 0: ml_values[2] = random.uniform(20, 100)
-    if ml_values[3] < 0: ml_values[3] = random.uniform(24.0, 35.0)
-    if ml_values[4] < 0: ml_values[4] = random.uniform(45.0, 85.0)
-    if ml_values[5] > 13.5 or ml_values[5] <= 0: ml_values[5] = random.uniform(6.0, 7.2)
+    if ml_values[0] < 0: ml_values[0] = 37.0  # Dataset median Nitrogen
+    if ml_values[1] < 0: ml_values[1] = 51.0  # Dataset median Phosphorus
+    if ml_values[2] < 0: ml_values[2] = 32.0  # Dataset median Potassium
+    if ml_values[3] < 0: ml_values[3] = 25.6  # Dataset median Temperature
+    if ml_values[4] < 0: ml_values[4] = 80.0  # Dataset median Humidity
+    if ml_values[5] > 13.5 or ml_values[5] <= 0: ml_values[5] = 6.4  # Dataset median pH
     
     feature_names = [
         "Nitrogen",

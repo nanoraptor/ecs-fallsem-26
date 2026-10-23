@@ -136,24 +136,31 @@ void loop() {
   if (isnan(humidity)) humidity = -1.0;
 
   // Read NPK
+  while (Serial2.available()) { Serial2.read(); } // Clear stale bytes
   digitalWrite(RE_DE_PIN, HIGH);
   delay(10);
   Serial2.write(npkRequest, sizeof(npkRequest));
   Serial2.flush();
   digitalWrite(RE_DE_PIN, LOW);
-  delay(100);
+
+  // Wait up to 300ms for full 11-byte Modbus response
+  unsigned long startWait = millis();
+  while (Serial2.available() < 11 && (millis() - startWait) < 300) {
+    delay(5);
+  }
 
   int n = -1, p = -1, k = -1;
   if (Serial2.available() >= 11) {
     for (int i = 0; i < 11; i++) {
       npkResponse[i] = Serial2.read();
     }
-    n = (npkResponse[3] << 8) | npkResponse[4];
-    p = (npkResponse[5] << 8) | npkResponse[6];
-    k = (npkResponse[7] << 8) | npkResponse[8];
-  } else {
-    while (Serial2.available()) { Serial2.read(); }
+    if (npkResponse[0] == 0x01 && npkResponse[1] == 0x03 && npkResponse[2] == 0x06) {
+      n = (npkResponse[3] << 8) | npkResponse[4];
+      p = (npkResponse[5] << 8) | npkResponse[6];
+      k = (npkResponse[7] << 8) | npkResponse[8];
+    }
   }
+  while (Serial2.available()) { Serial2.read(); }
 
   // Fallback Serial Output for debugging
   String rawCsv = String(phValue, 2) + "," + String(n) + "," + String(p) + "," + String(k) + "," + String(dhtTemp, 1) + "," + String(humidity, 1) + "," + String(waterTemp, 1);
