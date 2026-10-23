@@ -1,0 +1,6 @@
+@tabler/core 1.4.0 (pinned)
+  css: https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler.min.css
+  js:  https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js
+chart.js 4.4.1 (pinned, UMD)
+  js:  https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js
+Vendored locally under app/static/vendor/. No CDN at runtime.

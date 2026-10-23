@@ -33,9 +33,14 @@ void loop() {
   }
   int avgRaw = totalRaw / 50;
   
-  // Reverse the 10k/20k Voltage Divider math
+  // With 10kΩ series protection resistor (direct connection, no divider)
   float espVoltage = (avgRaw * 3.3) / 4095.0;
-  float originalVoltage = espVoltage * 1.5;
+  float originalVoltage = espVoltage;
+
+  // Live pH calculation with newly calibrated dual-slope parameters
+  const float tempFactor = (tempC != DEVICE_DISCONNECTED_C) ? ((tempC + 273.15) / 298.15) : 1.0;
+  const float slope = (originalVoltage > 1.114 ? 0.1805 : 0.1438) * tempFactor;
+  float livePh = 7.0 - ((originalVoltage - 1.114) / slope);
 
   // 3. Print Results
   Serial.println("\n=================================");
@@ -45,6 +50,7 @@ void loop() {
     Serial.print("TEMP : "); Serial.print(tempC, 1); Serial.println(" °C");
   }
   Serial.print("VOLTS: "); Serial.print(originalVoltage, 3); Serial.println(" V");
+  Serial.print("CALCULATED pH: "); Serial.println(livePh, 2);
   Serial.println("=================================");
 
   delay(3000);

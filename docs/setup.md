@@ -15,7 +15,7 @@
 | DS18B20 waterproof temp sensor | 1 | Water temperature (used for pH compensation) |
 | DHT11 sensor module | 1 | Humidity & Temp input for model |
 | 16x2 I2C LCD Display | 1 | Real-time sensor readout display |
-| 10kΩ & 20kΩ resistors | 1 each | Voltage divider for pH sensor |
+| 10kΩ resistor | 1 | Series current-limiting protection resistor for pH sensor |
 | 4.7kΩ resistor | 1 | DS18B20 data pull-up |
 | Breadboard | 1 | Wiring/power distribution |
 | Jumper wires (M-M / M-F) | As needed | Connections |
@@ -27,7 +27,7 @@
 |---|---|---|---|
 | pH sensor | `VCC` | `5V` (VIN) |
 | pH sensor | `GND` | `GND` |
-| pH sensor | `AO` / `SIG` | `GPIO34` | **MUST use 10k/20k voltage divider to protect 3.3V ESP32 ADC** (Sensor OUT -> 10k -> GPIO34 -> 20k -> GND) |
+| pH sensor | `AO` / `SIG` | `GPIO34` | Connect in series through a **10kΩ protection resistor** (Sensor `AO` -> 10kΩ resistor -> `GPIO34`). Protects the 3.3V ESP32 ADC pin. |
 | MAX485 | `VCC` | `3.3V` / `5V` | ESP32 logic is 3.3V, if powering MAX485 with 5V, ensure RO line to RX doesn't exceed 3.3V (use divider or 3.3V MAX3485) |
 | MAX485 | `GND` | `GND` |
 | MAX485 | `DI` (TX) | `GPIO17` (TX2)|
@@ -49,7 +49,7 @@
 ## Notes
 
 - Keep **all grounds common** (every module GND + External Power Supply GND connected to ESP32 GND).
-- **CRITICAL:** ESP32 ADC pins are 3.3V max. The pH sensor outputs 5V. Use the 10k/20k resistors as a voltage divider to step down the signal.
+- **pH Sensor Protection:** ESP32 ADC pins tolerate 3.3V max. Use a 10kΩ series resistor between the pH analog output and GPIO34 to limit current and protect the internal ESD diodes if the probe is unplugged.
 - The `esp32_full.ino` firmware connects directly to Wi-Fi and sends data via HTTP POST to the dashboard. You must update `ssid`, `password`, and `serverUrl` in the `.ino` file.
 - Start the dashboard using `python3 app/app.py --esp32` to listen for Wi-Fi sensor data.
 
@@ -60,6 +60,7 @@
 - The soil solutions should be made with distilled water in a 1:2 ratio of soil and water. The electrode will get damaged if it is dipped in a solution which contains a lot of solid sand particles. Let the slurry/solution settle or filter out the solution.
 - A pH electrode stand will be helpful in handling the pH electrode. The bulb of the pH electrode should not touch the bottom of the container, as it will break the electrode. You can also use microphone stands with minor tweaks.
 - The DS18B20 probe is required because the pH sensor used in this project does not have built-in temperature compensation.
+- **Calibrated Parameters (Dual-Slope):** Neutral reference voltage `PH_VOLTAGE_PH7 = 1.114V`, acidic slope `0.1805 V/pH`, alkaline slope `0.1438 V/pH` (calibrated with SDFCL pH 4.0, 7.0, and 9.2 capsules at ~30.5°C).
 
 ## Potential improvements
 

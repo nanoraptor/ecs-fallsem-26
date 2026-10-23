@@ -1,9 +1,10 @@
 #define PH_PIN 34 // Must be an input-only pin on ESP32
 
-// Calibration values (from a 5V perspective)
-const float PH_VOLTAGE_PH7 = 1.251;
-const float PH_VOLTAGE_PH4 = 1.769;
-const float PH_SLOPE = (PH_VOLTAGE_PH4 - PH_VOLTAGE_PH7) / 3.0;
+// Calibration values (Calibrated with SDFCL pH 4.0, 7.0, and 9.2 buffers with DS18B20 at ~30.5°C)
+const float PH_VOLTAGE_PH7 = 1.114;
+const float PH_SLOPE_ACID = 0.1805;    // V/pH for pH < 7 (normalized to 25°C)
+const float PH_SLOPE_ALKALINE = 0.1438; // V/pH for pH >= 7 (normalized to 25°C)
+const float PH_SLOPE = PH_SLOPE_ACID;
 
 void setup() {
   Serial.begin(115200);
@@ -26,12 +27,12 @@ void loop() {
   // 1. Convert the raw ESP32 reading (0-4095) back to the voltage the ESP32 is seeing (0-3.3V)
   float espVoltage = (avgRaw * 3.3) / 4095.0;
 
-  // 2. Reverse the Voltage Divider math (Vout = Vin * 2/3, so Vin = Vout * 1.5)
-  // This calculates the original voltage coming out of the sensor module before the resistors.
-  float originalVoltage = espVoltage * 1.5;
+  // 2. Direct connection with 10kΩ series protection resistor (no voltage divider)
+  float originalVoltage = espVoltage;
 
-  // 3. Calculate pH using the standard slope formula (assuming 25°C water)
-  float phValue = 7.0 - ((originalVoltage - PH_VOLTAGE_PH7) / PH_SLOPE);
+  // 3. Calculate pH using calibrated dual-slope formula (assuming ~25-30°C reference)
+  float slope = (originalVoltage > PH_VOLTAGE_PH7) ? PH_SLOPE_ACID : PH_SLOPE_ALKALINE;
+  float phValue = 7.0 - ((originalVoltage - PH_VOLTAGE_PH7) / slope);
 
   // Print diagnostics
   Serial.println("\n--- pH Reading ---");

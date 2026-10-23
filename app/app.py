@@ -15,14 +15,15 @@ from urllib.request import urlopen
 
 import joblib
 import pandas as pd
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
 VALID_MODES = {"sim", "serial", "esp32"}
 PH_ADC_MAX = 1023.0
 PH_ADC_REF_VOLTAGE = 5.0
-PH_VOLTAGE_PH7 = 1.251
-PH_VOLTAGE_PH4 = 1.769
-PH_SLOPE = (PH_VOLTAGE_PH4 - PH_VOLTAGE_PH7) / 3.0
+PH_VOLTAGE_PH7 = 1.114
+PH_SLOPE_ACID = 0.1805
+PH_SLOPE_ALKALINE = 0.1438
+PH_SLOPE = PH_SLOPE_ACID
 DEFAULT_HUMIDITY = 60.0
 DEFAULT_RAINFALL_MM = 100.0
 RAINFALL_WINDOW_DAYS = 30
@@ -69,619 +70,6 @@ CLI_MODE_OVERRIDE, CLI_PORT_OVERRIDE, CLI_LOCK_MODE, CLI_NO_CHECK = (
     else (None, None, False, False)
 )
 
-HTML = """
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SoilSage</title>
-  <link rel="icon" href="/favicon.ico">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&display=swap');
-
-    :root {
-      --bg-body: #f5f0e8;
-      --surface: #ffffff;
-      --tile: #faf8f4;
-      --border: #e5ddd0;
-      --text: #2d2b28;
-      --muted: #7c756b;
-      --ok: #2e7d5b;
-      --warn: #b8860b;
-      --bad: #c0392b;
-      --accent: #c96442;
-      --accent-hover: #a84e32;
-      --accent-light: rgba(201, 100, 66, 0.08);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      min-height: 100vh;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--text);
-      background-color: var(--bg-body);
-      padding: 48px 24px;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .wrap {
-      max-width: 1060px;
-      margin: 0 auto;
-      display: grid;
-      gap: 20px;
-    }
-
-    .card {
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-      padding: 28px;
-    }
-
-    .hero {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    h1 {
-      margin: 0 0 6px 0;
-      font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-      font-size: 28px;
-      font-weight: 700;
-      color: var(--text);
-      letter-spacing: -0.01em;
-    }
-
-    .muted { color: var(--muted); font-size: 14px; line-height: 1.5; }
-
-    .mode-pill {
-      align-self: center;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 8px 16px;
-      font-size: 12px;
-      font-weight: 600;
-      white-space: nowrap;
-      background: var(--tile);
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .mode-select {
-      margin-left: 8px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      padding: 5px 10px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-    }
-
-    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-
-    .tile {
-      background: var(--tile);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px;
-      min-height: 112px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-
-    .tile:hover {
-      border-color: var(--accent);
-      box-shadow: 0 2px 8px rgba(201, 100, 66, 0.08);
-    }
-
-    .label {
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-weight: 600;
-    }
-
-    .value {
-      margin-top: 14px;
-      font-size: 28px;
-      font-weight: 700;
-      line-height: 1.1;
-      color: var(--text);
-      word-break: break-word;
-    }
-
-    .status {
-      margin-top: 12px;
-      font-size: 18px;
-      font-weight: 600;
-      line-height: 1.35;
-    }
-
-    .status.ok { color: var(--ok); }
-    .status.warn { color: var(--warn); }
-    .status.bad { color: var(--bad); }
-
-    .subtext { margin-top: 10px; color: var(--muted); font-size: 13px; }
-
-    .raw-box {
-      margin-top: 12px;
-      border: 1px solid var(--border);
-      background: var(--tile);
-      border-radius: 10px;
-      padding: 14px 16px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      color: var(--muted);
-      font-size: 13px;
-      overflow-x: auto;
-    }
-
-    .controls-row {
-      margin-top: 16px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .text-input {
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      padding: 10px 14px;
-      font-size: 14px;
-      font-family: inherit;
-      width: 150px;
-      transition: border-color 0.2s ease;
-    }
-
-    .text-input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-light);
-    }
-
-    .btn {
-      border-radius: 10px;
-      border: none;
-      background: var(--accent);
-      color: #ffffff;
-      padding: 10px 20px;
-      font-size: 14px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: background-color 0.15s ease;
-    }
-
-    .btn:hover {
-      background: var(--accent-hover);
-    }
-
-    .btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    @media (max-width: 900px) {
-      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-
-    @media (max-width: 640px) {
-      .hero { flex-direction: column; align-items: flex-start; }
-      .mode-pill { align-self: flex-start; }
-      .grid { grid-template-columns: minmax(0, 1fr); }
-      .reco-row { grid-template-columns: 1fr; }
-      body { padding: 24px 16px; }
-    }
-
-    .reco-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .reco-card {
-      border-radius: 16px;
-      border: 2px solid var(--accent);
-      background: var(--surface);
-      box-shadow: 0 4px 16px rgba(201, 100, 66, 0.10);
-      padding: 32px 28px;
-      text-align: center;
-      transition: box-shadow 0.2s ease, transform 0.2s ease;
-    }
-
-    .reco-card:hover {
-      box-shadow: 0 8px 28px rgba(201, 100, 66, 0.16);
-      transform: translateY(-2px);
-    }
-
-    .reco-icon {
-      font-size: 40px;
-      margin-bottom: 12px;
-    }
-
-    .reco-label {
-      color: var(--muted);
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-weight: 600;
-      margin-bottom: 10px;
-    }
-
-    .reco-value {
-      font-family: 'Source Serif 4', Georgia, serif;
-      font-size: 32px;
-      font-weight: 700;
-      color: var(--accent);
-      line-height: 1.2;
-      word-break: break-word;
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="card hero">
-      <div>
-        <h1>SoilSage</h1>
-        <div class="muted">Live soil chemistry with crop and fertilizer recommendations.</div>
-      </div>
-      <div class="mode-pill"{% if mode_locked %} style="display:none;"{% endif %}>
-        MODE:
-        <select id="modeSelect" class="mode-select">
-          <option value="sim">SIM</option>
-          <option value="serial">SERIAL</option>
-          <option value="esp32">ESP32 (WiFi)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="reco-row">
-      <div class="reco-card">
-        <div class="reco-icon">🌾</div>
-        <div class="reco-label">Recommended Crop</div>
-        <div class="reco-value" id="crop">—</div>
-      </div>
-      <div class="reco-card">
-        <div class="reco-icon">🧪</div>
-        <div class="reco-label">Recommended Fertilizer</div>
-        <div class="reco-value" id="fertilizer">—</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="label">Chemical Status</div>
-      <div class="status" id="status">Connecting to ESP32...</div>
-      <div class="subtext" id="action"></div>
-      <div class="subtext" id="fertilizerReason"></div>
-    </div>
-
-    <div class="card">
-      <div class="label" style="margin-bottom: 14px;">Sensor Readings</div>
-      <div class="grid">
-        <div class="tile"><div class="label">pH</div><div class="value" id="ph">-</div></div>
-        <div class="tile"><div class="label">Nitrogen (mg/kg)</div><div class="value" id="n">-</div></div>
-        <div class="tile"><div class="label">Phosphorus (mg/kg)</div><div class="value" id="p">-</div></div>
-        <div class="tile"><div class="label">Potassium (mg/kg)</div><div class="value" id="k">-</div></div>
-        <div class="tile"><div class="label">Ambient Temp (°C)</div><div class="value" id="temperature">-</div></div>
-        <div class="tile"><div class="label">Humidity (%)</div><div class="value" id="humidity">-</div></div>
-        <div class="tile"><div class="label">Soil Solution Temp (°C)</div><div class="value" id="water_temp">-</div></div>
-        <div class="tile"><div class="label">Rainfall (30d mm)</div><div class="value" id="rainfall">-</div></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="label">Raw sensor packet</div>
-      <div id="raw" class="raw-box">-</div>
-      <div class="muted" style="margin-top:10px;">Last updated: <span id="updated">-</span></div>
-    </div>
-
-    <div class="card">
-      <div class="label">Rainfall source</div>
-      <div id="rainfallSource" class="subtext">Using default rainfall (location not set).</div>
-      <div id="locationStatus" class="muted" style="margin-top:6px;">Coordinates: not set</div>
-      <div class="controls-row">
-        <button id="geoBtn" class="btn" type="button">Use Browser Location</button>
-        <input id="latInput" class="text-input" type="text" placeholder="Latitude" />
-        <input id="lonInput" class="text-input" type="text" placeholder="Longitude" />
-        <button id="setCoordsBtn" class="btn" type="button">Set Coordinates</button>
-      </div>
-    </div>
-
-  </div>
-
-  <script>
-    const modeSelect = document.getElementById('modeSelect');
-    const modeLocked = {{ 'true' if mode_locked else 'false' }};
-    const geoBtn = document.getElementById('geoBtn');
-    const setCoordsBtn = document.getElementById('setCoordsBtn');
-    const latInput = document.getElementById('latInput');
-    const lonInput = document.getElementById('lonInput');
-    const rainfallSourceEl = document.getElementById('rainfallSource');
-    const locationStatusEl = document.getElementById('locationStatus');
-
-    async function postLocation(latitude, longitude, source = 'manual') {
-      const res = await fetch('/api/location', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ latitude, longitude, source }),
-      });
-      return res.json();
-    }
-
-    async function loadLocation() {
-      try {
-        const res = await fetch('/api/location', { cache: 'no-store' });
-        const data = await res.json();
-        if (!data.ok || !data.location) return false;
-        const loc = data.location;
-        if (typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
-          latInput.value = loc.latitude.toFixed(6);
-          lonInput.value = loc.longitude.toFixed(6);
-          locationStatusEl.textContent = `Coordinates: ${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}`;
-          return true;
-        }
-        return false;
-      } catch (_e) {
-        return false;
-      }
-    }
-
-    function requestBrowserLocation(autoRequest = false) {
-      return new Promise((resolve) => {
-        if (!navigator.geolocation) {
-          locationStatusEl.textContent = 'Geolocation is not supported in this browser.';
-          resolve(false);
-          return;
-        }
-        geoBtn.disabled = true;
-        locationStatusEl.textContent = autoRequest
-          ? 'Requesting browser location (auto)...'
-          : 'Requesting browser location...';
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            try {
-              const lat = pos.coords.latitude;
-              const lon = pos.coords.longitude;
-              latInput.value = lat.toFixed(6);
-              lonInput.value = lon.toFixed(6);
-              const result = await postLocation(lat, lon, autoRequest ? 'browser-auto' : 'browser');
-              if (!result.ok) throw new Error(result.error || 'Failed to set location');
-              locationStatusEl.textContent = `Coordinates: ${result.location.latitude.toFixed(6)}, ${result.location.longitude.toFixed(6)}`;
-              resolve(true);
-            } catch (e) {
-              locationStatusEl.textContent = e.message;
-              resolve(false);
-            } finally {
-              geoBtn.disabled = false;
-            }
-          },
-          (err) => {
-            const insecureContextHint =
-              window.location.protocol !== 'https:' && window.location.hostname !== 'localhost'
-                ? ' (Use HTTPS or localhost for location access)'
-                : '';
-            locationStatusEl.textContent = `Unable to get location: ${err.message}${insecureContextHint}`;
-            geoBtn.disabled = false;
-            resolve(false);
-          },
-          { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
-        );
-      });
-    }
-
-    async function setMode(mode) {
-      const res = await fetch('/api/mode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
-      });
-      return res.json();
-    }
-
-    function clearReadingUI() {
-      document.getElementById('ph').textContent = '-';
-      document.getElementById('n').textContent = '-';
-      document.getElementById('p').textContent = '-';
-      document.getElementById('k').textContent = '-';
-      document.getElementById('temperature').textContent = '-';
-      document.getElementById('humidity').textContent = '-';
-      document.getElementById('water_temp').textContent = '-';
-      document.getElementById('rainfall').textContent = '-';
-      document.getElementById('crop').textContent = '-';
-      document.getElementById('fertilizer').textContent = '-';
-      document.getElementById('raw').textContent = '-';
-      document.getElementById('updated').textContent = '-';
-      document.getElementById('action').textContent = '';
-      document.getElementById('fertilizerReason').textContent = '';
-    }
-
-    function normalizeSerialError(message) {
-      const prefix = 'ESP32 not detected. Connect the board and verify the serial port.';
-      const text = String(message || '').toLowerCase();
-      if (text.includes('permission denied')) {
-        return 'ESP32 found, but access to the serial port was denied. Add your user to the dialout group and reconnect.';
-      }
-      if (text.includes('device reports readiness to read but returned no data')) {
-        return 'Serial connection dropped while reading. Reconnect the ESP32 USB cable and wait a few seconds.';
-      }
-      if (
-        text.includes('esp32 not connected') ||
-        text.includes('cannot open') ||
-        text.includes('no such file or directory')
-      ) {
-        return prefix;
-      }
-      return message || 'Unable to fetch serial reading';
-    }
-
-    async function refresh() {
-      try {
-        const res = await fetch('/api/reading', { cache: 'no-store' });
-        const data = await res.json();
-        if (!data.ok) {
-          if (data.mode) modeSelect.value = data.mode;
-          clearReadingUI();
-          const statusMessage =
-            data.mode === 'serial'
-              ? normalizeSerialError(data.error)
-              : (data.error || 'Dashboard error');
-          document.getElementById('status').textContent = statusMessage;
-          document.getElementById('status').className = 'status bad';
-          return;
-        }
-
-        modeSelect.value = data.mode;
-
-        function updateSensor(id, val, isMissing, formatFn, randGen) {
-          const el = document.getElementById(id);
-          const tile = el.closest('.tile');
-          if (isMissing) {
-            el.textContent = formatFn(randGen());
-            if (tile) { 
-              tile.style.opacity = '0.5'; 
-              tile.style.backgroundColor = '#e0e0e0'; 
-              tile.title = 'Sensor disconnected. Displaying random value.';
-            }
-          } else {
-            el.textContent = formatFn(val);
-            if (tile) { 
-              tile.style.opacity = '1'; 
-              tile.style.backgroundColor = ''; 
-              tile.title = '';
-            }
-          }
-        }
-
-        updateSensor('ph', data.ph, data.ph <= 0 || data.ph > 13.5, v => v.toFixed(2), () => 5.5 + Math.random() * 2.5);
-        updateSensor('n', data.n, data.n === 0, v => Math.round(v), () => Math.random() * 100);
-        updateSensor('p', data.p, data.p === 0, v => Math.round(v), () => Math.random() * 100);
-        updateSensor('k', data.k, data.k === 0, v => Math.round(v), () => Math.random() * 100);
-        updateSensor('temperature', data.temperature, data.humidity < 0 || data.temperature < 0, v => v.toFixed(1), () => Math.random() * 40 + 10);
-        updateSensor('humidity', data.humidity, data.humidity < 0, v => v.toFixed(1), () => Math.random() * 100);
-        updateSensor('water_temp', data.water_temp, data.water_temp <= -127, v => v.toFixed(1), () => Math.random() * 40 + 10);
-        updateSensor('rainfall', data.rainfall, false, v => v.toFixed(1), () => Math.random() * 200);
-
-        document.getElementById('crop').textContent = String(data.prediction).toUpperCase();
-        document.getElementById('fertilizer').textContent = data.fertilizer;
-        document.getElementById('raw').textContent = data.raw;
-        document.getElementById('updated').textContent = data.timestamp;
-        const rainfallMeta = data.rainfall_meta || {};
-        const staleLabel = rainfallMeta.stale ? ' (stale)' : '';
-        const warningLabel = rainfallMeta.warning ? ` - ${rainfallMeta.warning}` : '';
-        rainfallSourceEl.textContent = `${rainfallMeta.source || 'default'}${staleLabel}${warningLabel}`;
-        if (rainfallMeta.latitude !== undefined && rainfallMeta.longitude !== undefined) {
-          locationStatusEl.textContent = `Coordinates: ${Number(rainfallMeta.latitude).toFixed(6)}, ${Number(rainfallMeta.longitude).toFixed(6)}`;
-        }
-
-        const statusEl = document.getElementById('status');
-        const actionEl = document.getElementById('action');
-        const fertilizerReasonEl = document.getElementById('fertilizerReason');
-        
-        if (data.stale) {
-          statusEl.textContent = '⚠️ ESP32 FROZEN OR DISCONNECTED (Stale Data)';
-          statusEl.className = 'status bad';
-          actionEl.textContent = 'The ESP32 stopped sending data. Please restart the ESP32!';
-          fertilizerReasonEl.textContent = data.error || 'Connection timed out.';
-          document.querySelector('.grid').style.opacity = '0.4';
-        } else {
-          statusEl.textContent = data.status;
-          actionEl.textContent = data.action;
-          fertilizerReasonEl.textContent = data.fertilizer_reason;
-          statusEl.className = 'status ' + data.level;
-          document.querySelector('.grid').style.opacity = '1';
-        }
-      } catch (e) {
-        clearReadingUI();
-        const statusEl = document.getElementById('status');
-        statusEl.textContent = 'Dashboard fetch error';
-        statusEl.className = 'status bad';
-      }
-    }
-
-    if (modeLocked) {
-      modeSelect.disabled = true;
-    } else {
-      modeSelect.addEventListener('change', async (event) => {
-        const desiredMode = event.target.value;
-        modeSelect.disabled = true;
-        try {
-          const data = await setMode(desiredMode);
-          if (!data.ok) {
-            throw new Error(data.error || 'Failed to switch mode');
-          }
-        } catch (e) {
-          const statusEl = document.getElementById('status');
-          statusEl.textContent = e.message;
-          statusEl.className = 'status bad';
-        } finally {
-          modeSelect.disabled = false;
-          refresh();
-        }
-      });
-    }
-
-    setCoordsBtn.addEventListener('click', async () => {
-      const lat = Number(latInput.value.trim());
-      const lon = Number(lonInput.value.trim());
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        locationStatusEl.textContent = 'Enter valid numeric latitude and longitude.';
-        return;
-      }
-      setCoordsBtn.disabled = true;
-      try {
-        const result = await postLocation(lat, lon, 'manual');
-        if (!result.ok) throw new Error(result.error || 'Failed to set location');
-        locationStatusEl.textContent = `Coordinates: ${result.location.latitude.toFixed(6)}, ${result.location.longitude.toFixed(6)}`;
-        refresh();
-      } catch (e) {
-        locationStatusEl.textContent = e.message;
-      } finally {
-        setCoordsBtn.disabled = false;
-      }
-    });
-
-    geoBtn.addEventListener('click', async () => {
-      await requestBrowserLocation(false);
-      refresh();
-    });
-
-    (async () => {
-      const hasLocation = await loadLocation();
-      if (!hasLocation) {
-        await requestBrowserLocation(true);
-      }
-      refresh();
-    })();
-    setInterval(refresh, 2000);
-
-    const modePill = document.querySelector('.mode-pill');
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'm' && !modeLocked) {
-        if (modePill.style.display === 'none') {
-          modePill.style.display = '';
-        } else {
-          modePill.style.display = 'none';
-        }
-      }
-    });
-  </script>
-</body>
-</html>
-"""
 
 
 def evaluate_ph(ph_val: float):
@@ -706,7 +94,8 @@ def evaluate_ph(ph_val: float):
 
 def ph_from_raw_adc(raw_adc: float):
     voltage = (raw_adc * PH_ADC_REF_VOLTAGE) / PH_ADC_MAX
-    return 7.0 - ((voltage - PH_VOLTAGE_PH7) / PH_SLOPE)
+    slope = PH_SLOPE_ACID if voltage > PH_VOLTAGE_PH7 else PH_SLOPE_ALKALINE
+    return 7.0 - ((voltage - PH_VOLTAGE_PH7) / slope)
 
 
 def parse_serial_line(line: str):
@@ -792,7 +181,7 @@ def sanitize_input_values(values: list, skip_ph_check: bool = False):
         (-10, 2000),  # K
         (-40, 60),    # Temp
         (-10, 100),   # Humidity
-        (-10, 14),    # pH
+        (-10, 15),    # pH
         (-10, 1000),  # Rainfall
         (-130, 125),  # Water Temp
     ]
@@ -885,9 +274,18 @@ RAINFALL_CACHE = {}
 LAST_RAINFALL = None
 
 app = Flask(__name__)
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 LATEST_READING = None
 LATEST_READING_LOCK = Lock()
 STATE_LOCK = Lock()
+SERIAL_LOCK = Lock()
 LOCATION_LOCK = Lock()
 RAINFALL_LOCK = Lock()
 LATEST_ESP32_RAW = None
@@ -897,13 +295,11 @@ LATEST_ESP32_TIMESTAMP = 0.0
 
 @app.get("/")
 def index():
-    return render_template_string(HTML, mode_locked=MODE_LOCKED)
+    return render_template("dashboard.html", mode_locked=MODE_LOCKED, mode=get_mode(), v=int(time.time()))
 
 @app.get("/favicon.ico")
 def favicon():
-    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌱</text></svg>'
-    from flask import Response
-    return Response(svg, mimetype="image/svg+xml")
+    return send_from_directory("static/img", "favicon.svg", mimetype="image/svg+xml")
 
 
 def get_mode():
@@ -973,7 +369,7 @@ def ensure_serial_ready_locked():
 
     if SER is None:
         available_ports = list_serial_ports_locked()
-        candidate_ports = [PORT] + [p for p in available_ports if p != PORT]
+        candidate_ports = available_ports if available_ports else [PORT]
         connection_errors = []
 
         for candidate in candidate_ports:
@@ -983,8 +379,9 @@ def ensure_serial_ready_locked():
                     BAUD,
                     timeout=SERIAL_READ_TIMEOUT_SECONDS,
                 )
+                SER.dtr = False
+                SER.rts = False
                 ACTIVE_PORT = candidate
-                time.sleep(2)
                 SER.reset_input_buffer()
                 break
             except SERIAL_EXCEPTION as exc:
@@ -1006,7 +403,7 @@ def switch_mode(new_mode: str):
     global MODE, LATEST_READING
     mode = str(new_mode).strip().lower()
     if mode not in VALID_MODES:
-        raise ValueError("Mode must be 'sim' or 'serial'")
+        raise ValueError(f"Mode must be one of: {', '.join(sorted(VALID_MODES))}")
 
     with STATE_LOCK:
         if mode == MODE:
@@ -1250,8 +647,17 @@ def get_reading():
 
     with STATE_LOCK:
         mode = MODE
-        if mode == "serial":
-            ser = ensure_serial_ready_locked()
+        active_port = ACTIVE_PORT
+        esp32_raw = LATEST_ESP32_RAW
+        esp32_values = list(LATEST_ESP32_VALUES) if LATEST_ESP32_VALUES else None
+        esp32_ts = LATEST_ESP32_TIMESTAMP
+
+    if mode == "serial":
+        with SERIAL_LOCK:
+            with STATE_LOCK:
+                ser = ensure_serial_ready_locked()
+                active_port = ACTIVE_PORT
+            buffer = ""
             deadline = time.monotonic() + SERIAL_READ_WINDOW_SECONDS
             parse_error = None
             values = None
@@ -1259,25 +665,36 @@ def get_reading():
 
             while time.monotonic() < deadline:
                 try:
-                    line = ser.readline().decode("utf-8", errors="replace").strip()
+                    if hasattr(ser, "in_waiting") and ser.in_waiting > 0:
+                        chunk = ser.read(ser.in_waiting).decode("utf-8", errors="replace")
+                        buffer += chunk
+                        if "\n" in buffer:
+                            lines = buffer.split("\n")
+                            buffer = lines[-1]
+                            for l in lines[:-1]:
+                                line = l.strip()
+                                if not line:
+                                    continue
+                                try:
+                                    values = parse_serial_line(line)
+                                    raw_line = line
+                                    parse_error = None
+                                    break
+                                except ValueError as exc:
+                                    parse_error = exc
+                            if values is not None:
+                                break
+                    time.sleep(0.05)
                 except SERIAL_EXCEPTION as exc:
                     parse_error = exc
-                    close_serial_locked()
-                    try:
-                        ser = ensure_serial_ready_locked()
-                    except Exception as reconnect_exc:
-                        parse_error = reconnect_exc
-                        time.sleep(0.1)
+                    with STATE_LOCK:
+                        close_serial_locked()
+                        try:
+                            ser = ensure_serial_ready_locked()
+                        except Exception as reconnect_exc:
+                            parse_error = reconnect_exc
+                    time.sleep(0.1)
                     continue
-                if not line:
-                    continue
-                try:
-                    values = parse_serial_line(line)
-                    raw_line = line
-                    parse_error = None
-                    break
-                except ValueError as exc:
-                    parse_error = exc
 
             if values is None:
                 if parse_error is not None:
@@ -1285,27 +702,28 @@ def get_reading():
                         f"No valid serial data received yet ({parse_error})"
                     ) from parse_error
                 raise RuntimeError("No serial data received yet")
-            active_port = ACTIVE_PORT
-        elif mode == "esp32":
-            if LATEST_ESP32_RAW is None:
-                raise RuntimeError("No data received from ESP32 over WiFi yet")
-            # Check timeout (e.g. 10 seconds without data)
-            if time.monotonic() - LATEST_ESP32_TIMESTAMP > 10.0:
-                raise RuntimeError("ESP32 data is stale. Connection lost?")
-            values = list(LATEST_ESP32_VALUES)
-            raw_line = LATEST_ESP32_RAW
-            active_port = "wifi"
-        else:
-            ph = round(random.uniform(4.5, 8.5), 2)
-            n = random.randint(10, 150)
-            p = random.randint(10, 80)
-            k = random.randint(10, 80)
-            temp = round(random.uniform(24.0, 35.0), 1)
-            hum = round(random.uniform(45.0, 85.0), 1)
-            water_temp = round(random.uniform(20.0, 30.0), 1)
-            values = [n, p, k, temp, hum, ph, DEFAULT_RAINFALL_MM, water_temp]
-            raw_line = f"{ph:.2f},{n},{p},{k},{temp:.1f},{hum:.1f},{water_temp:.1f}"
-            active_port = None
+
+    elif mode == "esp32":
+        if esp32_raw is None:
+            raise RuntimeError("No data received from ESP32 over WiFi yet")
+        # Check timeout (e.g. 10 seconds without data)
+        if time.monotonic() - esp32_ts > 10.0:
+            raise RuntimeError("ESP32 data is stale. Connection lost?")
+        values = list(esp32_values)
+        raw_line = esp32_raw
+        active_port = "wifi"
+
+    else:
+        ph = round(random.uniform(4.5, 8.5), 2)
+        n = random.randint(10, 150)
+        p = random.randint(10, 80)
+        k = random.randint(10, 80)
+        temp = round(random.uniform(24.0, 35.0), 1)
+        hum = round(random.uniform(45.0, 85.0), 1)
+        water_temp = round(random.uniform(20.0, 30.0), 1)
+        values = [n, p, k, temp, hum, ph, DEFAULT_RAINFALL_MM, water_temp]
+        raw_line = f"{ph:.2f},{n},{p},{k},{temp:.1f},{hum:.1f},{water_temp:.1f}"
+        active_port = None
 
     values[6] = rainfall_mm
     values = sanitize_input_values(values, skip_ph_check=not PH_RANGE_CHECK_ENABLED)
@@ -1313,9 +731,9 @@ def get_reading():
     # Make realistic random values for the ML model if sensors are missing
     # so we don't get "Alkaline" warnings for a missing pH sensor, or weird crop predictions
     ml_values = list(values)
-    if ml_values[0] <= 0: ml_values[0] = random.uniform(20, 100)
-    if ml_values[1] <= 0: ml_values[1] = random.uniform(20, 100)
-    if ml_values[2] <= 0: ml_values[2] = random.uniform(20, 100)
+    if ml_values[0] < 0: ml_values[0] = random.uniform(20, 100)
+    if ml_values[1] < 0: ml_values[1] = random.uniform(20, 100)
+    if ml_values[2] < 0: ml_values[2] = random.uniform(20, 100)
     if ml_values[3] < 0: ml_values[3] = random.uniform(24.0, 35.0)
     if ml_values[4] < 0: ml_values[4] = random.uniform(45.0, 85.0)
     if ml_values[5] > 13.5 or ml_values[5] <= 0: ml_values[5] = random.uniform(6.0, 7.2)
@@ -1331,8 +749,24 @@ def get_reading():
     ]
     X = pd.DataFrame([ml_values[:7]], columns=feature_names)
     prediction = model.predict(X)[0]
-    
-    # We evaluate pH and fertilizer based on ml_values so we don't get 
+
+    # NEW (UI-only addition): real top-3 class probabilities for the
+    # alternatives strip. Existing fields below are unchanged.
+    top_crops = []
+    try:
+        proba = model.predict_proba(X)[0]
+        classes = [str(c) for c in list(model.classes_)]
+        ranked = sorted(
+            range(len(classes)), key=lambda i: float(proba[i]), reverse=True
+        )[:3]
+        top_crops = [
+            {"crop": classes[i], "score": round(float(proba[i]), 4)}
+            for i in ranked
+        ]
+    except Exception:
+        top_crops = []
+
+    # We evaluate pH and fertilizer based on ml_values so we don't get
     # "Alkaline" warnings for a missing sensor
     status, action, level = evaluate_ph(ml_values[5])
     fertilizer, fertilizer_reason = recommend_fertilizer(
@@ -1352,6 +786,7 @@ def get_reading():
         "water_temp": values[7],
         "rainfall_meta": rainfall_meta,
         "prediction": str(prediction),
+        "top_crops": top_crops,
         "fertilizer": fertilizer,
         "fertilizer_reason": fertilizer_reason,
         "status": status,

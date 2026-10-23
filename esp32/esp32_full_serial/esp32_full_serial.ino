@@ -21,10 +21,11 @@ const uint16_t LOOP_DELAY_MS = 2000;
 const float DEFAULT_COMPENSATION_TEMP_C = 25.0;
 const float PH_REFERENCE_TEMP_K = 298.15;
 
-// pH Calibration
-const float PH_VOLTAGE_PH7 = 1.251;
-const float PH_VOLTAGE_PH4 = 1.769;
-const float PH_SLOPE = (PH_VOLTAGE_PH4 - PH_VOLTAGE_PH7) / 3.0;
+// pH Calibration (Calibrated with SDFCL pH 4.0, 7.0, and 9.2 buffers with DS18B20 at ~30.5°C)
+const float PH_VOLTAGE_PH7 = 1.114;
+const float PH_SLOPE_ACID = 0.1805;    // V/pH for pH < 7 (normalized to 25°C)
+const float PH_SLOPE_ALKALINE = 0.1438; // V/pH for pH >= 7 (normalized to 25°C)
+const float PH_SLOPE = PH_SLOPE_ACID;
 
 OneWire oneWire(WATER_TEMP_PIN);
 DallasTemperature waterTempSensor(&oneWire);
@@ -41,10 +42,12 @@ float readWaterTempC() {
 
 float phFromRawCalibrated(int phRaw, float waterTempC) {
   float espVoltage = (phRaw * 3.3) / 4095.0;
-  float originalVoltage = espVoltage * 1.5;
+  // With 10kΩ series protection resistor (direct ADC connection, no divider):
+  float originalVoltage = espVoltage;
   const float tempFactor = (waterTempC + 273.15) / PH_REFERENCE_TEMP_K;
-  const float compensatedSlope = PH_SLOPE * tempFactor;
-  return 7.0 - ((originalVoltage - PH_VOLTAGE_PH7) / compensatedSlope);
+  // Dual-slope temperature compensation (acid vs alkaline)
+  const float slope = (originalVoltage > PH_VOLTAGE_PH7 ? PH_SLOPE_ACID : PH_SLOPE_ALKALINE) * tempFactor;
+  return 7.0 - ((originalVoltage - PH_VOLTAGE_PH7) / slope);
 }
 
 int readAverageRaw(uint8_t pin, uint8_t samples, uint8_t sampleDelayMs = 10) {
@@ -102,7 +105,7 @@ void loop() {
   digitalWrite(RE_DE_PIN, LOW);
   delay(100);
 
-  int n = 0, p = 0, k = 0;
+  int n = -1, p = -1, k = -1;
   if (Serial2.available() >= 11) {
     for (int i = 0; i < 11; i++) {
       npkResponse[i] = Serial2.read();

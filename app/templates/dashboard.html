@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SoilSage — Field Console</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <script>
+    try {
+      var t = localStorage.getItem("soilsage-theme");
+      document.documentElement.setAttribute("data-bs-theme",
+        (t === "dark" || t === "light") ? t :
+        (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/tabler/tabler.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/soilsage.css') }}?v={{ v }}">
+  <script>window.SOILSAGE_MODE_LOCKED = {{ 'true' if mode_locked else 'false' }};</script>
+</head>
+<body>
+<header class="navbar ss-navbar sticky-top">
+  <div class="container-xl ss-header-in">
+    <div class="d-flex align-items-center gap-3 min-w-0">
+      <span class="ss-brand-mark" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20h10"/><path d="M12 20v-9"/><path d="M12 11c0-3.5 2.5-6 6.5-6.5C18 8 15.5 10.5 12 11z"/><path d="M12 11C12 7.5 9.5 5 5.5 4.5 6 8 8.5 10.5 12 11z"/></svg>
+      </span>
+      <div class="min-w-0">
+        <div class="fw-bold ss-type-16" style="letter-spacing:-0.01em">SoilSage</div>
+        <div class="ss-type-12 ss-secondary text-truncate">Field console · live soil chemistry</div>
+      </div>
+      <span class="badge bg-green-lt ms-1 d-inline-flex align-items-center gap-1">
+        <span class="status-dot status-dot-animated bg-green"></span> Live
+      </span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button id="themeBtn" class="btn btn-ghost-secondary ss-icon-btn" type="button" aria-pressed="false" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+      <div class="mode-pill d-flex align-items-center gap-2"{% if mode_locked %} style="display:none;"{% endif %}>
+        <span class="ss-type-12 ss-secondary">Mode</span>
+        <select id="modeSelect" class="form-select form-select-sm" style="width:auto">
+          <option value="sim"{% if mode == 'sim' %} selected{% endif %}>SIM</option>
+          <option value="serial"{% if mode == 'serial' %} selected{% endif %}>SERIAL</option>
+          <option value="esp32"{% if mode == 'esp32' %} selected{% endif %}>ESP32 (WiFi)</option>
+        </select>
+      </div>
+      <details class="ss-devmenu" id="devMenu" style="display:none">
+        <summary class="btn btn-ghost-secondary ss-icon-btn" title="Developer tools" aria-label="Developer tools">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h10"/><path d="M18 8h2"/><path d="M4 16h2"/><path d="M12 16h8"/><circle cx="16" cy="8" r="2"/><circle cx="10" cy="16" r="2"/></svg>
+        </summary>
+        <div class="ss-devmenu-body" role="group" aria-label="Demo data / Worst case" id="breakToggle">
+          <div class="ss-devmenu-title">Preview data</div>
+          <button type="button" data-break="demo" aria-pressed="true">Demo</button>
+          <button type="button" data-break="worst" aria-pressed="false">Worst case</button>
+          <button type="button" data-break="empty" aria-pressed="false">Empty</button>
+          <button type="button" data-break="one" aria-pressed="false">One</button>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+
+<div class="page-wrapper">
+<div class="container-xl py-4 d-flex flex-column gap-3">
+
+  <div class="d-flex align-items-end justify-content-between flex-wrap gap-2">
+    <div>
+      <h1 class="ss-type-28 mb-1">Soil overview</h1>
+      <div class="ss-type-14 ss-secondary">Crop and fertilizer guidance from live probes and 30-day rainfall.</div>
+    </div>
+    <div class="ss-type-12 ss-secondary">Updated <span id="updated" class="ss-tnum">just now</span><span id="actionDup" class="ms-2"></span></div>
+  </div>
+
+  <div class="row row-cards g-3">
+    <div class="col-lg-7">
+      <div class="card ss-card h-100">
+        <div class="card-body ss-card-pad">
+          <div class="d-flex align-items-center gap-2 mb-2 text-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7"/><path d="M12 15c-4 0-7-2.5-7-7 4.5 0 7 2.5 7 7z"/><path d="M12 15c4 0 7-2.5 7-7-4.5 0-7 2.5-7 7z"/><path d="M12 22c-2 0-3.5-.5-5-2"/></svg>
+            <span class="ss-section-title">Recommended crop</span>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div id="crop" class="ss-type-40 ss-tnum" title="-">—</div>
+            <span id="cropScore" class="ss-conf d-none" title="Model confidence">–</span>
+          </div>
+          <div id="cropAlts" class="ss-alts" aria-live="off"></div>
+          <div class="ss-gauge">
+            <div class="ss-gauge-track">
+              <div class="ss-litmus" aria-hidden="true">
+                <div class="ss-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                <div class="ss-litmus-marker" id="litmusMarker" style="left:50%"><span class="ss-litmus-tag" id="phMarkerLabel">–</span></div>
+              </div>
+              <div class="ss-bracket" aria-hidden="true"><span>Optimal 6.0–7.5</span></div>
+              <div class="ss-scale ss-type-12 ss-secondary" aria-hidden="true"><span style="left:0%">4 acidic</span><span style="left:60%">7 neutral</span><span style="left:100%">9 alkaline</span></div>
+            </div>
+          </div>
+          <div class="ss-type-14 ss-secondary mt-2">Ranked by NPK, climate and 30-day rainfall.</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card ss-card h-100">
+        <div class="card-body ss-card-pad">
+          <div class="d-flex align-items-center gap-2 mb-2 text-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5.5L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8.5V3"/><path d="M7.5 14h9"/></svg>
+            <span class="ss-section-title">Fertilizer mix</span>
+          </div>
+          <div id="fertilizer" class="d-none" title="-">—</div>
+          <div id="fertChips" class="ss-chips" aria-live="off"></div>
+          <div id="fertRate" class="ss-type-14 mt-2" dir="auto"></div>
+          <div class="ss-npkbars" id="npkBars" aria-live="off"></div>
+          <div id="fertilizerReason" class="ss-type-14 ss-secondary mt-2" dir="auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card ss-card ss-alert" id="alertCard">
+    <div class="card-body ss-card-pad d-flex gap-3">
+      <span class="ss-alert-icon" id="statusIcon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      </span>
+      <div class="min-w-0">
+        <div id="status" class="ss-type-20 fw-bold">Connecting…</div>
+        <div id="action" class="ss-type-14 mt-1" dir="auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row row-cards g-3">
+    <div class="col-lg-7 d-flex flex-column gap-3">
+      <div class="card ss-card">
+        <div class="card-body ss-card-pad">
+          <div class="d-flex align-items-baseline justify-content-between mb-3">
+            <span class="ss-section-title">Sensor readings</span>
+            <span class="ss-section-sub">Dimmed tiles are disconnected probes</span>
+          </div>
+          <div class="ss-tiles">
+            <div class="ss-tile" data-tile="ph"><div class="ss-k"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3.5 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 8.5 7 12 3z"/></svg>pH<span class="ss-dot" aria-hidden="true"></span></div><div class="ss-vline"><span class="ss-v" id="ph">-</span></div><div class="ss-tstat"><span class="ss-range"><i></i></span><span class="ss-tlabel"></span></div></div>
+            <div class="ss-tile" data-tile="n"><div class="ss-k"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-9"/><path d="M12 13c-4 0-7-2.5-7-7 4.5 0 7 2.5 7 7z"/></svg>Nitrogen<span class="ss-dot" aria-hidden="true"></span></div><div class="ss-vline"><span class="ss-v" id="n">-</span><span class="ss-unit">mg/kg</span></div><div class="ss-tstat"><span class="ss-range"><i></i></span><span class="ss-tlabel"></span></div></div>
+            <div class="ss-tile" data-tile="p"><div class="ss-k"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>Phosphorus<span class="ss-dot" aria-hidden="true"></span></div><div class="ss-vline"><span class="ss-v" id="p">-</span><span class="ss-unit">mg/kg</span></div><div class="ss-tstat"><span class="ss-range"><i></i></span><span class="ss-tlabel"></span></div></div>
+            <div class="ss-tile" data-tile="k"><div class="ss-k"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20h14"/><path d="M7 20V9l5-5 5 5v11"/></svg>Potassium<span class="ss-dot" aria-hidden="true"></span></div><div class="ss-vline"><span class="ss-v" id="k">-</span><span class="ss-unit">mg/kg</span></div><div class="ss-tstat"><span class="ss-range"><i></i></span><span class="ss-tlabel"></span></div></div>
+            <div class="ss-tile" data-tile="temperature"><div class="ss-k"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4a2 2 0 0 0-4 0v9.5a4 4 0 1 0 4 0z"/><path d="M12 9v6"/></svg>Air temp<span class="ss-dot" aria-hidden="true"></span></div><div class="ss-vline"><span class="ss-v" id="temperature">-</span><span class="ss-unit">°C</span></div><div class="ss-tstat"><span class="ss-range"><i></i></span><span class="ss-tlabel"></span></div></div>
+            <div class="ss-tile" data-tile="humidity"><div class="ss-k"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3.5 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 8.5 7 12 3z"/><path d="M9.5 14a2.5 2.5 0 0 0 2.5 2.5"/></svg>Humidity<span class="ss-dot" aria-hidden="true"></span></div><div class="ss-vline"><span class="ss-v" id="humidity">-</span><span class="ss-unit">%</span></div><div class="ss-tstat"><span class="ss-range"><i></i></span><span class="ss-tlabel"></span></div></div>
+            <div class="ss-tile" data-tile="water_temp"><div class="ss-k"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16"/><path d="M7 18V8l5-5 5 5v10"/></svg>Soil solution<span class="ss-dot" aria-hidden="true"></span></div><div class="ss-vline"><span class="ss-v" id="water_temp">-</span><span class="ss-unit">°C</span></div><div class="ss-tstat"><span class="ss-range"><i></i></span><span class="ss-tlabel"></span></div></div>
+            <div class="ss-tile" data-tile="rainfall"><div class="ss-k"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 15a4 4 0 0 0-3-3.9A5.5 5.5 0 0 0 6.2 12.5 3.5 3.5 0 0 0 7 19.5h13z"/><path d="M8 18v2M12 18v3M16 18v2"/></svg>Rainfall · 30d</div><span class="ss-badge d-none ss-badge-block" id="rainfallBadge">Default</span><div class="ss-vline"><span class="ss-v" id="rainfall">-</span><span class="ss-unit">mm</span></div><div class="ss-tstat"><span class="ss-range"><i></i></span><span class="ss-tlabel"></span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card ss-card mt-auto">
+        <div class="card-body ss-card-pad">
+          <details id="probeDetails">
+            <summary class="ss-probe-sum"><span class="ss-section-title">Probe packet</span><span class="d-flex align-items-center gap-2"><span class="ss-section-sub">verbatim</span><svg class="ss-chev" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></summary>
+            <div id="raw" class="ss-raw mt-2" dir="auto" title="-">-</div>
+          </details>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5 d-flex flex-column gap-3">
+      <div class="card ss-card">
+        <div class="card-body ss-card-pad">
+          <div class="d-flex align-items-baseline justify-content-between mb-2">
+            <span class="ss-section-title">pH trend</span>
+            <span class="ss-section-sub">last 40 polls</span>
+          </div>
+          <div class="ss-chart-wrap"><canvas id="phChart" aria-label="pH history chart"></canvas></div>
+          <div class="ss-chart-legend"><span><i style="background:#0071e3"></i>pH</span><span><i style="background:#337e4f"></i>Optimal 6.0–7.5</span></div>
+        </div>
+      </div>
+      <div class="card ss-card">
+        <div class="card-body ss-card-pad">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="d-flex align-items-center gap-2 text-secondary">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span class="ss-section-title">Rainfall</span>
+            </div>
+            <span class="ss-badge" id="rainBadge">Default value</span>
+          </div>
+          <div id="rainfallSource" class="ss-type-14 ss-secondary" dir="auto">Set a location to fetch live rainfall.</div>
+          <div id="locationStatus" class="ss-type-12 ss-secondary mt-1" dir="auto">Coordinates: not set</div>
+          <form class="ss-locform mt-3" id="locForm" action="javascript:void(0)">
+            <div class="ss-locrow">
+              <div class="ss-field">
+                <label for="latInput">Latitude</label>
+                <input id="latInput" class="form-control" type="text" inputmode="decimal" placeholder="e.g. 12.9716" autocomplete="off" />
+              </div>
+              <div class="ss-field">
+                <label for="lonInput">Longitude</label>
+                <input id="lonInput" class="form-control" type="text" inputmode="decimal" placeholder="e.g. 77.5946" autocomplete="off" />
+              </div>
+            </div>
+            <div class="ss-locactions">
+              <button id="geoBtn" class="btn btn-outline-secondary" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>Use browser location</button>
+              <button id="setCoordsBtn" class="btn btn-primary" type="submit">Set coordinates</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ss-type-12 ss-secondary text-center py-2">SoilSage field console · readings refresh every 2s · press M to show the mode switcher</footer>
+</div>
+</div>
+
+<script src="{{ url_for('static', filename='vendor/tabler/tabler.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}?v={{ v }}"></script>
+</body>
+</html>
