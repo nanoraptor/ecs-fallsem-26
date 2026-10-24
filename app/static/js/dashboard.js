@@ -111,8 +111,8 @@
     if (!cv || typeof Chart === "undefined") return false;
     if (cv.clientWidth === 0) return false;
     var c = chartColors();
-    Chart.defaults.font.family = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-    Chart.defaults.font.size = 10.5;
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", -system-ui, sans-serif';
+    Chart.defaults.font.size = 11;
     var bands = bandArrays(history.ph.length);
     chart = new Chart(cv, {
       type: "line",
