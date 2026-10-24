@@ -9,12 +9,14 @@
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // --- WiFi Credentials ---
-const char* ssid = "rahkickz-lp";
-const char* password = "12345678";
+// Configure with your local 2.4GHz WiFi SSID and password
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
 
 // --- Flask Server ---
-// Replace with the IP address of the machine running app.py
-const char* serverUrl = "http://172.20.54.188:5000/api/esp32_reading"; 
+// Replace with the IP address and port of the machine running app.py
+// Example: "http://192.168.1.100:5000/api/esp32_reading"
+const char* serverUrl = "http://YOUR_SERVER_IP:5000/api/esp32_reading"; 
 
 // --- Pin Definitions (ESP32 38-Pin) ---
 #define PH_PIN 34          // ADC1_CH6 (Input only)

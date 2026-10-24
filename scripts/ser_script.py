@@ -20,9 +20,10 @@ except ModuleNotFoundError:
 
 PH_ADC_MAX = 1023.0
 PH_ADC_REF_VOLTAGE = 5.0
-PH_VOLTAGE_PH7 = 1.251
-PH_VOLTAGE_PH4 = 1.769
-PH_SLOPE = (PH_VOLTAGE_PH4 - PH_VOLTAGE_PH7) / 3.0
+PH_VOLTAGE_PH7 = 1.114
+PH_SLOPE_ACID = 0.1805
+PH_SLOPE_ALKALINE = 0.1438
+PH_SLOPE = PH_SLOPE_ACID
 DEFAULT_HUMIDITY = 60.0
 DEFAULT_RAINFALL_MM = 100.0
 RAINFALL_WINDOW_DAYS = 30
@@ -41,17 +42,19 @@ COLS = [
 
 def ph_from_raw_adc(raw_adc: float):
     voltage = (raw_adc * PH_ADC_REF_VOLTAGE) / PH_ADC_MAX
-    return 7.0 - ((voltage - PH_VOLTAGE_PH7) / PH_SLOPE)
+    slope = PH_SLOPE_ACID if voltage > PH_VOLTAGE_PH7 else PH_SLOPE_ALKALINE
+    return 7.0 - ((voltage - PH_VOLTAGE_PH7) / slope)
 
 
 def parse_serial_line(line: str, rainfall: float):
     parts = line.strip().split(",")
     numeric = [float(x) for x in parts]
     if len(numeric) == 7:
-        if 14.0 < numeric[5] <= PH_ADC_MAX:
-            numeric[5] = ph_from_raw_adc(numeric[5])
-        numeric[6] = rainfall
-        return numeric
+        # ESP32 packet format: phValueOrRaw,n,p,k,dhtTemp,humidity,waterTemp
+        ph_raw, n, p, k, temp, hum, water_temp = numeric
+        if 14.0 < ph_raw <= PH_ADC_MAX:
+            ph_raw = ph_from_raw_adc(ph_raw)
+        return [n, p, k, temp, hum, ph_raw, rainfall]
     if len(numeric) == 6:
         # ESP32 packet format: phValueOrRaw,n,p,k,dhtTemp,humidity
         ph_raw, n, p, k, temp, hum = numeric
@@ -163,104 +166,116 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 from ml.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
 
-try:
-    _mpath = resolve_soil_model_path()
+def main():
     try:
-        model = joblib.load(_mpath)
-    except Exception:
-        with open(_mpath, "rb") as _fh:
-            model = pickle.load(_fh)
-except FileNotFoundError as exc:
-    print(f"Error: {exc}")
-    sys.exit(1)
-
-parser = argparse.ArgumentParser(
-    description="Read ESP32 serial data and run crop prediction."
-)
-parser.add_argument(
-    "--port",
-    default=os.getenv("ESP32_PORT", "/dev/ttyACM0"),
-    help="ESP32 serial port (example: /dev/ttyACM0 or COM3)",
-)
-parser.add_argument(
-    "--location",
-    nargs=2,
-    type=float,
-    metavar=("LAT", "LON"),
-    help="Latitude and Longitude to fetch rainfall data.",
-)
-parser.add_argument(
-    "--rainfall_data", type=float, help="Specify rainfall data directly."
-)
-args = parser.parse_args()
-
-rainfall = DEFAULT_RAINFALL_MM
-use_default_warning = False
-
-if args.location is not None:
-    try:
-        print(f"Fetching rainfall data for location: {args.location}")
-        fetched_rainfall = fetch_rainfall_data(args.location[0], args.location[1])
-        print(f"Successfully fetched rainfall data: {fetched_rainfall:.2f}mm")
-        rainfall = fetched_rainfall
-    except Exception as e:
-        print(f"Warning: Failed to fetch rainfall data from location ({e}).")
-        if args.rainfall_data is not None:
-            print(f"Falling back to rainfall_data flag: {args.rainfall_data}mm")
-            rainfall = args.rainfall_data
-        else:
-            use_default_warning = True
-elif args.rainfall_data is not None:
-    rainfall = args.rainfall_data
-else:
-    use_default_warning = True
-
-if use_default_warning:
-    print(f"Using default rainfall value: {DEFAULT_RAINFALL_MM}mm")
-
-port = args.port
-try:
-    ser = serial.Serial(port, 9600, timeout=1)
-except SerialException as exc:
-    print(f"Error: cannot open serial port {port}: {exc}")
-    sys.exit(1)
-
-time.sleep(2)
-print(f"System Live. Reading Soil Chemistry from {port}...")
-
-try:
-    while True:
-        if ser.in_waiting <= 0:
-            continue
-
-        line = ser.readline().decode("utf-8", errors="replace").strip()
-        if not line:
-            continue
-
+        _mpath = resolve_soil_model_path()
         try:
-            values = parse_serial_line(line, rainfall)
-        except (ValueError, IndexError) as e:
-            print(f"Skipping malformed row: {line} ({e})")
-            continue
+            model = joblib.load(_mpath)
+        except Exception:
+            with open(_mpath, "rb") as _fh:
+                model = pickle.load(_fh)
+    except FileNotFoundError as exc:
+        print(f"Error: {exc}")
+        sys.exit(1)
 
-        current_readings = pd.DataFrame([values], columns=COLS)
-        prediction = model.predict(current_readings)[0]
+    parser = argparse.ArgumentParser(
+        description="Read ESP32 serial data and run crop prediction."
+    )
+    parser.add_argument(
+        "--port",
+        default=os.getenv("ESP32_PORT", "/dev/ttyACM0"),
+        help="ESP32 serial port (example: /dev/ttyACM0 or COM3)",
+    )
+    parser.add_argument(
+        "--baud",
+        type=int,
+        default=115200,
+        help="Serial baud rate (default: 115200)",
+    )
+    parser.add_argument(
+        "--location",
+        nargs=2,
+        type=float,
+        metavar=("LAT", "LON"),
+        help="Latitude and Longitude to fetch rainfall data.",
+    )
+    parser.add_argument(
+        "--rainfall_data", type=float, help="Specify rainfall data directly."
+    )
+    args = parser.parse_args()
 
-        print(f"--- Sensor Data: {line} ---")
-        print(f"--- Rainfall: {rainfall:.2f}mm ---")
-        print(f"Recommended Crop: {prediction}")
-        if hasattr(model, "explain_reading"):
-            _exp = model.explain_reading(values)
-            print(f"Why it fits: {_exp['summary']}")
+    rainfall = DEFAULT_RAINFALL_MM
+    use_default_warning = False
 
-        ph_val = values[5]
-        if ph_val < 5.5:
-            print("ACTION: Soil is acidic. Suggest adding Lime (CaCO3).")
-        elif ph_val > 7.5:
-            print("ACTION: Soil is alkaline. Suggest adding organic mulch.")
-        else:
-            print("ACTION: pH is in balanced range.")
-except KeyboardInterrupt:
-    print("\nStopped by user.")
-finally:
-    ser.close()
+    if args.location is not None:
+        try:
+            print(f"Fetching rainfall data for location: {args.location}")
+            fetched_rainfall = fetch_rainfall_data(args.location[0], args.location[1])
+            print(f"Successfully fetched rainfall data: {fetched_rainfall:.2f}mm")
+            rainfall = fetched_rainfall
+        except Exception as e:
+            print(f"Warning: Failed to fetch rainfall data from location ({e}).")
+            if args.rainfall_data is not None:
+                print(f"Falling back to rainfall_data flag: {args.rainfall_data}mm")
+                rainfall = args.rainfall_data
+            else:
+                use_default_warning = True
+    elif args.rainfall_data is not None:
+        rainfall = args.rainfall_data
+    else:
+        use_default_warning = True
+
+    if use_default_warning:
+        print(f"Using default rainfall value: {DEFAULT_RAINFALL_MM}mm")
+
+    port = args.port
+    baud = args.baud
+    try:
+        ser = serial.Serial(port, baud, timeout=1)
+    except SerialException as exc:
+        print(f"Error: cannot open serial port {port} at {baud} baud: {exc}")
+        sys.exit(1)
+
+    time.sleep(2)
+    print(f"System Live. Reading Soil Chemistry from {port} at {baud} baud...")
+
+    try:
+        while True:
+            if ser.in_waiting <= 0:
+                continue
+
+            line = ser.readline().decode("utf-8", errors="replace").strip()
+            if not line:
+                continue
+
+            try:
+                values = parse_serial_line(line, rainfall)
+            except (ValueError, IndexError) as e:
+                print(f"Skipping malformed row: {line} ({e})")
+                continue
+
+            current_readings = pd.DataFrame([values], columns=COLS)
+            prediction = model.predict(current_readings)[0]
+
+            print(f"--- Sensor Data: {line} ---")
+            print(f"--- Rainfall: {rainfall:.2f}mm ---")
+            print(f"Recommended Crop: {prediction}")
+            if hasattr(model, "explain_reading"):
+                _exp = model.explain_reading(values)
+                print(f"Why it fits: {_exp['summary']}")
+
+            ph_val = values[5]
+            if ph_val < 5.5:
+                print("ACTION: Soil is acidic. Suggest adding Lime (CaCO3).")
+            elif ph_val > 7.5:
+                print("ACTION: Soil is alkaline. Suggest adding organic mulch.")
+            else:
+                print("ACTION: pH is in balanced range.")
+    except KeyboardInterrupt:
+        print("\nStopped by user.")
+    finally:
+        ser.close()
+
+
+if __name__ == "__main__":
+    main()

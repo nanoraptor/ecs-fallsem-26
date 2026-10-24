@@ -183,6 +183,7 @@ python3 scripts/ser_script.py --port=/dev/ttyUSB0
 | `--location <LAT> <LON>` | Fetches 30-day rainfall from Open-Meteo for the given coordinates. |
 | `--rainfall_data <VALUE>` | Overrides rainfall directly in millimeters (e.g. `--rainfall_data 120.0`). |
 | `--port <PORT>` | *(ser_script only)* Specifies serial port to connect (default: `/dev/ttyACM0`). |
+| `--baud <BAUD>` | *(ser_script only)* Specifies serial baud rate (default: `115200`). |
 
 ---
 
