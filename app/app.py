@@ -247,8 +247,45 @@ def resolve_soil_model_path():
     raise FileNotFoundError(f"soil_model.pkl not found. Checked: {checked_display}")
 
 
+import pickle
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from random_forest.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
+
+
+def _load_or_upgrade_model(path: Path):
+    loaded = None
+    try:
+        loaded = joblib.load(path)
+    except Exception:
+        try:
+            with open(path, "rb") as fh:
+                loaded = pickle.load(fh)
+        except Exception:
+            loaded = None
+    if loaded is not None and hasattr(loaded, "explain_reading"):
+        return loaded
+    dataset_csv = _REPO_ROOT / "random_forest" / "dataset" / "Crop_recommendation.csv"
+    if dataset_csv.is_file():
+        df = pd.read_csv(dataset_csv).dropna(axis=1, how="all")
+        ebm = AgronomicEBMClassifier(random_state=42)
+        ebm.fit(df[FEATURE_NAMES], df["label"])
+        try:
+            with open(path, "wb") as fh:
+                pickle.dump(ebm, fh, protocol=4)
+        except Exception:
+            pass
+        return ebm
+    if loaded is not None:
+        return loaded
+    raise FileNotFoundError(f"Could not load soil model from {path}")
+
+
 try:
-    model = joblib.load(resolve_soil_model_path())
+    model = _load_or_upgrade_model(resolve_soil_model_path())
 except FileNotFoundError as exc:
     print(f"Error: {exc}")
     sys.exit(1)
@@ -773,6 +810,13 @@ def get_reading():
     except Exception:
         top_crops = []
 
+    explanation = None
+    try:
+        if hasattr(model, "explain_reading"):
+            explanation = model.explain_reading(ml_values[:7])
+    except Exception:
+        explanation = None
+
     # We evaluate pH and fertilizer based on ml_values so we don't get
     # "Alkaline" warnings for a missing sensor
     status, action, level = evaluate_ph(ml_values[5])
@@ -794,6 +838,7 @@ def get_reading():
         "rainfall_meta": rainfall_meta,
         "prediction": str(prediction),
         "top_crops": top_crops,
+        "explanation": explanation,
         "fertilizer": fertilizer,
         "fertilizer_reason": fertilizer_reason,
         "status": status,

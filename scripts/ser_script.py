@@ -156,8 +156,19 @@ def resolve_soil_model_path():
     raise FileNotFoundError(f"soil_model.pkl not found. Checked: {checked_display}")
 
 
+import pickle
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+from random_forest.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
+
 try:
-    model = joblib.load(resolve_soil_model_path())
+    _mpath = resolve_soil_model_path()
+    try:
+        model = joblib.load(_mpath)
+    except Exception:
+        with open(_mpath, "rb") as _fh:
+            model = pickle.load(_fh)
 except FileNotFoundError as exc:
     print(f"Error: {exc}")
     sys.exit(1)
@@ -237,6 +248,9 @@ try:
         print(f"--- Sensor Data: {line} ---")
         print(f"--- Rainfall: {rainfall:.2f}mm ---")
         print(f"Recommended Crop: {prediction}")
+        if hasattr(model, "explain_reading"):
+            _exp = model.explain_reading(values)
+            print(f"Why it fits: {_exp['summary']}")
 
         ph_val = values[5]
         if ph_val < 5.5:
