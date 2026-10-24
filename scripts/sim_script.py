@@ -86,6 +86,7 @@ def resolve_soil_model_path():
     relative_paths = (
         Path("soil_model.pkl"),
         Path("model") / "soil_model.pkl",
+        Path("ml") / "model" / "soil_model.pkl",
         Path("random_forest") / "model" / "soil_model.pkl",
     )
     seen = set()
@@ -109,7 +110,7 @@ import pickle
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-from random_forest.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
+from ml.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
 
 try:
     _mpath = resolve_soil_model_path()

@@ -11,12 +11,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from random_forest.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
+from ml.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
 
 
 def train_and_save():
-    dataset_path = REPO_ROOT / "random_forest" / "dataset" / "Crop_recommendation.csv"
-    output_path = REPO_ROOT / "random_forest" / "model" / "soil_model.pkl"
+    dataset_path = REPO_ROOT / "ml" / "dataset" / "Crop_recommendation.csv"
+    output_path = REPO_ROOT / "ml" / "model" / "soil_model.pkl"
 
     df = pd.read_csv(dataset_path).dropna(axis=1, how="all")
     X = df[FEATURE_NAMES]

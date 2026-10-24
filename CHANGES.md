@@ -2,14 +2,14 @@
 
 Base commit: `ca5e2cd` (*fix: resolve UI audit bugs, rainfall fallback, and pH calibration*)
 
-## 1. Plain-Language Agronomic Crop Explanation Model (`random_forest/`)
-- **`random_forest/ebm_model.py` & `random_forest/__init__.py`**:
+## 1. Plain-Language Agronomic Crop Explanation Model (`ml/`)
+- **`ml/ebm_model.py` & `ml/__init__.py`**:
   - Replaces the black-box `RandomForestClassifier` with `AgronomicEBMClassifier` (Explainable Boosting / GAM architecture with per-crop biological response curves and ideal range statistics across all 22 crops).
   - Achieves **99.55% validation accuracy** on the 80/20 stratified holdout split (`random_state=42`) vs. 99.09% for the baseline Random Forest.
   - Exposes `predict()`, `predict_proba()`, `classes_`, and `explain_instance()` so `/api/reading`, `scripts/sim_script.py`, and `scripts/ser_script.py` return both top-3 crop probabilities and a farmer-friendly `explanation` payload (plain-English summary, per-factor soil/weather fit cards with ideal crop windows, and a direct comparison against the runner-up crop).
-- **`random_forest/model/soil_model.pkl`**:
+- **`ml/model/soil_model.pkl`**:
   - Serialized trained model (standard pickle protocol 4, compatible with both `joblib.load()` and `pickle.load()`).
-- **`random_forest/training/train_ebm.py` & `random_forest/training/train.ipynb`**:
+- **`ml/training/train_ebm.py` & `ml/training/train.ipynb`**:
   - Reproducible training script and updated Jupyter notebook.
 
 ## 2. Hardware-Safe Backend Integration (`app/` & `scripts/`)

@@ -59,8 +59,8 @@ The console is structured around three actionable pillars:
 │       ├── css/soilsage.css       # Complete Design.md botanical styling
 │       ├── js/dashboard.js        # Live polling (2s), Chart.js & explanation renderer
 │       └── vendor/                # Tabler & Chart.js offline dependencies
-├── random_forest/
-│   ├── __init__.py                # Package exports
+├── ml/
+│   ├── __init__.py                # Package exports & backward-compatibility aliases
 │   ├── ebm_model.py               # AgronomicEBMClassifier architecture & agronomy knowledge base
 │   ├── dataset/
 │   │   └── Crop_recommendation.csv # 22-crop multi-nutrient agricultural dataset
@@ -203,13 +203,13 @@ $$g(E[y]) = \beta_0 + \sum_{j=1}^{M} f_j(x_j)$$
 
 ### Re-training the Model
 
-To train and regenerate `random_forest/model/soil_model.pkl`:
+To train and regenerate `ml/model/soil_model.pkl`:
 
 ```bash
 # Option 1: Standalone training script
-python3 random_forest/training/train_ebm.py
+python3 ml/training/train_ebm.py
 
 # Option 2: Jupyter Notebook
-jupyter notebook random_forest/training/train.ipynb
+jupyter notebook ml/training/train.ipynb
 ```
 The resulting model artifact is serialized using standard pickle protocol 4 and loaded automatically by `app/app.py`, `scripts/ser_script.py`, and `scripts/sim_script.py`.

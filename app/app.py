@@ -229,6 +229,7 @@ def resolve_soil_model_path():
     relative_paths = (
         Path("soil_model.pkl"),
         Path("model") / "soil_model.pkl",
+        Path("ml") / "model" / "soil_model.pkl",
         Path("random_forest") / "model" / "soil_model.pkl",
     )
     seen = set()
@@ -253,7 +254,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from random_forest.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
+from ml.ebm_model import AgronomicEBMClassifier, FEATURE_NAMES
 
 
 def _load_or_upgrade_model(path: Path):
@@ -268,7 +269,9 @@ def _load_or_upgrade_model(path: Path):
             loaded = None
     if loaded is not None and hasattr(loaded, "explain_reading"):
         return loaded
-    dataset_csv = _REPO_ROOT / "random_forest" / "dataset" / "Crop_recommendation.csv"
+    dataset_csv = _REPO_ROOT / "ml" / "dataset" / "Crop_recommendation.csv"
+    if not dataset_csv.is_file():
+        dataset_csv = _REPO_ROOT / "random_forest" / "dataset" / "Crop_recommendation.csv"
     if dataset_csv.is_file():
         df = pd.read_csv(dataset_csv).dropna(axis=1, how="all")
         ebm = AgronomicEBMClassifier(random_state=42)
