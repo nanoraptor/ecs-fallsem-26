@@ -320,6 +320,20 @@
     var badgeEl = document.getElementById("suitabilityBadge");
     var soilNoteEl = document.getElementById("cropSoilNote");
 
+    var isDisconnected = (data && data.n < 0 && data.p < 0 && data.k < 0) || /disconnected/i.test(cropName);
+    if (isDisconnected) {
+      if (titleEl) titleEl.textContent = "◉ 03 / NPK Sensor Disconnected";
+      if (badgeEl) {
+        badgeEl.textContent = "Sensor offline";
+        badgeEl.classList.remove("d-none");
+      }
+      if (soilNoteEl) soilNoteEl.textContent = "RS485 communication timeout or wiring fault.";
+      if (summaryEl) summaryEl.textContent = "No RS485 response received from the NPK sensor. Please check MAX485 wiring (RO->RX2, DI->TX2, DE/RE->D4) and 12V DC power.";
+      if (factorsEl) factorsEl.innerHTML = '<div class="text-secondary small py-2 px-1">Sensor data unavailable. Check RS485 wiring and 12V power supply.</div>';
+      if (cmpEl) cmpEl.textContent = "";
+      return;
+    }
+
     if (isNoSample || (data && data.npk_missing) || /Please insert/i.test(cropName)) {
       if (titleEl) titleEl.textContent = "◉ 03 / Awaiting Soil Sample";
       if (badgeEl) {
@@ -382,6 +396,22 @@
     var hidden = document.getElementById("fertilizer");
     var rateEl = document.getElementById("fertRate");
     var fertEl = document.getElementById("fertilizerReason");
+
+    if (/disconnected/i.test(mix)) {
+      if (hidden) { hidden.textContent = "Sensor disconnected"; hidden.title = "Sensor disconnected"; }
+      if (box) {
+        box.innerHTML = '<span class="ss-chip">' + CHIP_ICON + 'Sensor disconnected</span>';
+        box.title = "Sensor disconnected";
+      }
+      if (fertEl) {
+        fertEl.textContent = "Connect NPK sensor to calculate fertilizer requirements.";
+        fertEl.title = "Connect NPK sensor to calculate fertilizer requirements.";
+      }
+      if (rateEl) {
+        rateEl.innerHTML = "";
+      }
+      return;
+    }
 
     if (isNoSample || /Awaiting/i.test(mix) || /Please insert/i.test(mix)) {
       if (hidden) { hidden.textContent = "Awaiting soil sample"; hidden.title = "Awaiting soil sample"; }
@@ -450,6 +480,10 @@
   function renderNpkBars(d) {
     var box = document.getElementById("npkBars");
     if (!box) return;
+    if (d && (d.n < 0 || d.p < 0 || d.k < 0)) {
+      box.innerHTML = '<div class="text-secondary small py-2">Sensor disconnected · Awaiting RS485 communication</div>';
+      return;
+    }
     if (d && (d.npk_missing || (d.n === 0 && d.p === 0 && d.k === 0))) {
       box.innerHTML = '<div class="text-secondary small py-2">Probes reading 0 mg/kg · Awaiting moist soil contact</div>';
       return;
@@ -583,13 +617,15 @@
       updateSensor("water_temp", data.water_temp, data.water_temp <= -127, fmt1);
       updateSensor("rainfall", data.rainfall, false, fmt1);
 
-      var isNoSample = Boolean(data.npk_missing || (data.n === 0 && data.p === 0 && data.k === 0));
+      var isDisconnected = (data.n < 0 && data.p < 0 && data.k < 0);
+      var isZeroSample = (data.n === 0 && data.p === 0 && data.k === 0);
+      var isNoSample = Boolean(data.npk_missing || isDisconnected || isZeroSample);
       var altInfo = isNoSample ? { topScore: null } : renderAlts(data);
       if (isNoSample) {
         var altsBox = document.getElementById("cropAlts");
         if (altsBox) altsBox.innerHTML = "";
       }
-      var cropName = isNoSample ? "Please insert soil sample" : ((altInfo.topCrop !== undefined) ? titleCase(altInfo.topCrop) : titleCase(data.prediction));
+      var cropName = isDisconnected ? "NPK Sensor Disconnected" : (isZeroSample ? "Please insert soil sample" : ((altInfo.topCrop !== undefined) ? titleCase(altInfo.topCrop) : titleCase(data.prediction)));
       var cropEl = document.getElementById("crop");
       cropEl.textContent = cropName;
       cropEl.title = cropName;

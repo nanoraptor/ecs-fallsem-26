@@ -45,7 +45,7 @@ DHT dht(DHT_PIN, DHT_TYPE);
 
 // Modbus RTU frame for NPK
 const byte npkRequest[] = {0x01, 0x03, 0x00, 0x1E, 0x00, 0x03, 0x65, 0xCD};
-byte npkResponse[11];
+byte npkResponse[32];
 
 bool isValidWaterTempC(float tempC) {
   return tempC != DEVICE_DISCONNECTED_C && tempC >= -55.0 && tempC <= 125.0;
@@ -140,26 +140,38 @@ void loop() {
   // Read NPK
   while (Serial2.available()) { Serial2.read(); } // Clear stale bytes
   digitalWrite(RE_DE_PIN, HIGH);
-  delay(10);
+  delay(5);
   Serial2.write(npkRequest, sizeof(npkRequest));
   Serial2.flush();
   digitalWrite(RE_DE_PIN, LOW);
 
-  // Wait up to 300ms for full 11-byte Modbus response
+  // Wait up to 400ms for full Modbus response
   unsigned long startWait = millis();
-  while (Serial2.available() < 11 && (millis() - startWait) < 300) {
-    delay(5);
+  while (Serial2.available() < 11 && (millis() - startWait) < 400) {
+    delay(10);
   }
 
   int n = -1, p = -1, k = -1;
-  if (Serial2.available() >= 11) {
-    for (int i = 0; i < 11; i++) {
+  int bytesReceived = Serial2.available();
+  if (bytesReceived >= 11) {
+    int readLen = (bytesReceived > (int)sizeof(npkResponse)) ? sizeof(npkResponse) : bytesReceived;
+    for (int i = 0; i < readLen; i++) {
       npkResponse[i] = Serial2.read();
     }
-    if (npkResponse[0] == 0x01 && npkResponse[1] == 0x03 && npkResponse[2] == 0x06) {
-      n = (npkResponse[3] << 8) | npkResponse[4];
-      p = (npkResponse[5] << 8) | npkResponse[6];
-      k = (npkResponse[7] << 8) | npkResponse[8];
+
+    // Find the Modbus header (0x01 0x03 0x06) to ignore line-transient glitch bytes (0x00 / 0xFF)
+    int headerIndex = -1;
+    for (int i = 0; i <= readLen - 9; i++) {
+      if (npkResponse[i] == 0x01 && npkResponse[i + 1] == 0x03 && npkResponse[i + 2] == 0x06) {
+        headerIndex = i;
+        break;
+      }
+    }
+
+    if (headerIndex != -1) {
+      n = (npkResponse[headerIndex + 3] << 8) | npkResponse[headerIndex + 4];
+      p = (npkResponse[headerIndex + 5] << 8) | npkResponse[headerIndex + 6];
+      k = (npkResponse[headerIndex + 7] << 8) | npkResponse[headerIndex + 8];
     }
   }
   while (Serial2.available()) { Serial2.read(); }

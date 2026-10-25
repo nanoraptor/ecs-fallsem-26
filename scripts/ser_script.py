@@ -258,7 +258,13 @@ def main():
             print(f"--- Sensor Data: {line} ---")
             print(f"--- Rainfall: {rainfall:.2f}mm ---")
 
-            if n <= 0 and p <= 0 and k <= 0:
+            if n < 0 and p < 0 and k < 0:
+                print("Recommended Crop: [NPK sensor disconnected]")
+                print("STATUS: No RS485 response from NPK sensor.")
+                print("ACTION: Check MAX485 wiring (RO->RX2, DI->TX2, DE/RE->D4) and 12V DC power.")
+                continue
+
+            if n == 0 and p == 0 and k == 0:
                 print("Recommended Crop: [Please insert soil sample]")
                 print("STATUS: NPK readings are all 0 mg/kg (no soil sample detected).")
                 print("ACTION: Please insert the sensor prongs firmly into a moist soil sample.")

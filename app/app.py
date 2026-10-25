@@ -776,10 +776,29 @@ def get_reading():
     values[6] = rainfall_mm
     values = sanitize_input_values(values, skip_ph_check=not PH_RANGE_CHECK_ENABLED)
 
-    # Check if NPK sensor is not dipped in / no soil sample (all three N, P, K readings are 0 or <= 0)
-    npk_missing = (values[0] <= 0 and values[1] <= 0 and values[2] <= 0)
+    # Check if NPK sensor is disconnected (negative) vs zero sample (all 0 mg/kg)
+    npk_disconnected = (values[0] < 0 and values[1] < 0 and values[2] < 0)
+    npk_zero_sample = (values[0] == 0 and values[1] == 0 and values[2] == 0)
+    npk_missing = npk_disconnected or npk_zero_sample
 
-    if npk_missing:
+    if npk_disconnected:
+        prediction = "NPK sensor disconnected"
+        top_crops = []
+        explanation = {
+            "crop": "NPK Sensor Disconnected",
+            "summary": "No RS485 response received from the NPK sensor. Please check wiring (RO->RX2, DI->TX2, DE/RE->D4) and 12V DC power.",
+            "overall_suitability": 0,
+            "soil_note": "Sensor disconnected or communication failure",
+            "water_note": "Verify RS485 connections and 12V external power",
+            "factors": [],
+            "comparisons": [],
+        }
+        fertilizer = "Sensor disconnected"
+        fertilizer_reason = "Connect NPK sensor to calculate fertilizer requirements."
+        status = "NPK Sensor Disconnected"
+        action = "RS485 NPK sensor not detected. Check MAX485 wiring (RO->RX2, DI->TX2, DE/RE->D4) and 12V power supply."
+        level = "bad"
+    elif npk_zero_sample:
         prediction = "Please insert soil sample"
         top_crops = []
         explanation = {
