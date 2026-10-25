@@ -776,56 +776,76 @@ def get_reading():
     values[6] = rainfall_mm
     values = sanitize_input_values(values, skip_ph_check=not PH_RANGE_CHECK_ENABLED)
 
-    # Use standard dataset medians for missing sensors so disconnected probes do not simulate random numbers
-    ml_values = list(values)
-    if ml_values[0] < 0: ml_values[0] = 37.0  # Dataset median Nitrogen
-    if ml_values[1] < 0: ml_values[1] = 51.0  # Dataset median Phosphorus
-    if ml_values[2] < 0: ml_values[2] = 32.0  # Dataset median Potassium
-    if ml_values[3] < 0: ml_values[3] = 25.6  # Dataset median Temperature
-    if ml_values[4] < 0: ml_values[4] = 80.0  # Dataset median Humidity
-    if ml_values[5] > 13.5 or ml_values[5] <= 0: ml_values[5] = 6.4  # Dataset median pH
-    
-    feature_names = [
-        "Nitrogen",
-        "phosphorus",
-        "potassium",
-        "temperature",
-        "humidity",
-        "ph",
-        "rainfall",
-    ]
-    X = pd.DataFrame([ml_values[:7]], columns=feature_names)
-    prediction = model.predict(X)[0]
+    # Check if NPK sensor is not dipped in / no soil sample (all three N, P, K readings are 0 or <= 0)
+    npk_missing = (values[0] <= 0 and values[1] <= 0 and values[2] <= 0)
 
-    # NEW (UI-only addition): real top-3 class probabilities for the
-    # alternatives strip. Existing fields below are unchanged.
-    top_crops = []
-    try:
-        proba = model.predict_proba(X)[0]
-        classes = [str(c) for c in list(model.classes_)]
-        ranked = sorted(
-            range(len(classes)), key=lambda i: float(proba[i]), reverse=True
-        )[:3]
-        top_crops = [
-            {"crop": classes[i], "score": round(float(proba[i]), 4)}
-            for i in ranked
-        ]
-    except Exception:
+    if npk_missing:
+        prediction = "Please insert soil sample"
         top_crops = []
+        explanation = {
+            "crop": "Awaiting Soil Sample",
+            "summary": "NPK sensor readings are 0 mg/kg across all nutrients. Please insert the probes firmly into a moist soil sample to obtain crop and fertilizer recommendations.",
+            "overall_suitability": 0,
+            "soil_note": "Awaiting soil sample insertion",
+            "water_note": "Ensure soil is sufficiently moist and firmly packed around all 3 probes",
+            "factors": [],
+            "comparisons": [],
+        }
+        fertilizer = "Awaiting soil sample"
+        fertilizer_reason = "Insert NPK sensor into moist soil to calculate fertilizer requirements."
+        status = "Awaiting soil sample"
+        action = "NPK readings are 0 mg/kg. Please insert the sensor prongs firmly into a moist soil sample."
+        level = "warn"
+    else:
+        # Use standard dataset medians for missing sensors so disconnected probes do not simulate random numbers
+        ml_values = list(values)
+        if ml_values[0] < 0: ml_values[0] = 37.0  # Dataset median Nitrogen
+        if ml_values[1] < 0: ml_values[1] = 51.0  # Dataset median Phosphorus
+        if ml_values[2] < 0: ml_values[2] = 32.0  # Dataset median Potassium
+        if ml_values[3] < 0: ml_values[3] = 25.6  # Dataset median Temperature
+        if ml_values[4] < 0: ml_values[4] = 80.0  # Dataset median Humidity
+        if ml_values[5] > 13.5 or ml_values[5] <= 0: ml_values[5] = 6.4  # Dataset median pH
+        
+        feature_names = [
+            "Nitrogen",
+            "phosphorus",
+            "potassium",
+            "temperature",
+            "humidity",
+            "ph",
+            "rainfall",
+        ]
+        X = pd.DataFrame([ml_values[:7]], columns=feature_names)
+        prediction = model.predict(X)[0]
 
-    explanation = None
-    try:
-        if hasattr(model, "explain_reading"):
-            explanation = model.explain_reading(ml_values[:7])
-    except Exception:
+        # Real top-3 class probabilities for the alternatives strip
+        top_crops = []
+        try:
+            proba = model.predict_proba(X)[0]
+            classes = [str(c) for c in list(model.classes_)]
+            ranked = sorted(
+                range(len(classes)), key=lambda i: float(proba[i]), reverse=True
+            )[:3]
+            top_crops = [
+                {"crop": classes[i], "score": round(float(proba[i]), 4)}
+                for i in ranked
+            ]
+        except Exception:
+            top_crops = []
+
         explanation = None
+        try:
+            if hasattr(model, "explain_reading"):
+                explanation = model.explain_reading(ml_values[:7])
+        except Exception:
+            explanation = None
 
-    # We evaluate pH and fertilizer based on ml_values so we don't get
-    # "Alkaline" warnings for a missing sensor
-    status, action, level = evaluate_ph(ml_values[5])
-    fertilizer, fertilizer_reason = recommend_fertilizer(
-        prediction, ml_values[0], ml_values[1], ml_values[2], ml_values[5]
-    )
+        # Evaluate pH and fertilizer based on ml_values
+        status, action, level = evaluate_ph(ml_values[5])
+        fertilizer, fertilizer_reason = recommend_fertilizer(
+            prediction, ml_values[0], ml_values[1], ml_values[2], ml_values[5]
+        )
+
     return {
         "ok": True,
         "mode": mode,
@@ -840,6 +860,7 @@ def get_reading():
         "water_temp": values[7],
         "rainfall_meta": rainfall_meta,
         "prediction": str(prediction),
+        "npk_missing": npk_missing,
         "top_crops": top_crops,
         "explanation": explanation,
         "fertilizer": fertilizer,

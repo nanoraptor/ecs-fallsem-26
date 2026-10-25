@@ -302,6 +302,16 @@
     var badgeEl = document.getElementById("suitabilityBadge");
     var soilNoteEl = document.getElementById("cropSoilNote");
 
+    if (data && data.npk_missing) {
+      if (titleEl) titleEl.textContent = "◉ 03 / Awaiting Soil Sample";
+      if (badgeEl) badgeEl.textContent = "Sample required";
+      if (soilNoteEl) soilNoteEl.textContent = "Please insert probes firmly into moist soil.";
+      if (summaryEl) summaryEl.textContent = exp && exp.summary ? exp.summary : "NPK sensor readings are 0 mg/kg across all nutrients. Please insert the probes firmly into a moist soil sample to obtain recommendations.";
+      if (factorsEl) factorsEl.innerHTML = '<div class="text-secondary small py-2 px-1">Nutrient breakdown will appear once soil sample is detected.</div>';
+      if (cmpEl) cmpEl.textContent = "";
+      return;
+    }
+
     if (titleEl && cropName) {
       titleEl.textContent = "◉ 03 / Why " + cropName + " fits your soil";
     }
@@ -355,15 +365,22 @@
       box.innerHTML = parts.map(function (p) { return '<span class="ss-chip">' + CHIP_ICON + escHtml(p) + "</span>"; }).join("");
       box.title = mix;
     }
-    var bits = [];
-    if (/Nitrogen is low/i.test(reason)) bits.push("low nitrogen");
-    if (/Phosphorus is low/i.test(reason)) bits.push("low phosphorus");
-    if (/Potassium is low/i.test(reason)) bits.push("low potassium");
-    if (/lime/i.test(mix)) bits.push("lime for acidity");
-    if (/compost/i.test(mix)) bits.push("compost for alkalinity");
-    var oneLine = bits.length ? "Formulated to correct " + bits.join(", ") + "." : "Balanced maintenance formulation for the recommended crop.";
     var fertEl = document.getElementById("fertilizerReason");
-    if (fertEl) { fertEl.textContent = oneLine; fertEl.title = reason || oneLine; }
+    if (fertEl) {
+      if (/Awaiting/i.test(mix)) {
+        fertEl.textContent = reason || "Insert NPK sensor into moist soil to calculate fertilizer requirements.";
+      } else {
+        var bits = [];
+        if (/Nitrogen is low/i.test(reason)) bits.push("low nitrogen");
+        if (/Phosphorus is low/i.test(reason)) bits.push("low phosphorus");
+        if (/Potassium is low/i.test(reason)) bits.push("low potassium");
+        if (/lime/i.test(mix)) bits.push("lime for acidity");
+        if (/compost/i.test(mix)) bits.push("compost for alkalinity");
+        var oneLine = bits.length ? "Formulated to correct " + bits.join(", ") + "." : "Balanced maintenance formulation for the recommended crop.";
+        fertEl.textContent = oneLine;
+      }
+      fertEl.title = reason || "";
+    }
     renderFertRate(String(mix));
   }
 
@@ -398,6 +415,10 @@
   function renderNpkBars(d) {
     var box = document.getElementById("npkBars");
     if (!box) return;
+    if (d && (d.npk_missing || (d.n === 0 && d.p === 0 && d.k === 0))) {
+      box.innerHTML = '<div class="text-secondary small py-2">Probes reading 0 mg/kg · Awaiting moist soil contact</div>';
+      return;
+    }
     var colors = NPK_BAR_COLORS;
     var targetMap = { n: 37, p: 51, k: 32 };
     if (d.explanation && Array.isArray(d.explanation.factors)) {
@@ -527,14 +548,19 @@
       updateSensor("water_temp", data.water_temp, data.water_temp <= -127, fmt1);
       updateSensor("rainfall", data.rainfall, false, fmt1);
 
-      var altInfo = renderAlts(data);
-      var cropName = (altInfo.topCrop !== undefined) ? titleCase(altInfo.topCrop) : titleCase(data.prediction);
+      var isNoSample = Boolean(data.npk_missing || (data.n === 0 && data.p === 0 && data.k === 0));
+      var altInfo = isNoSample ? { topScore: null } : renderAlts(data);
+      if (isNoSample) {
+        var altsBox = document.getElementById("cropAlts");
+        if (altsBox) altsBox.innerHTML = "";
+      }
+      var cropName = isNoSample ? "Please insert soil sample" : ((altInfo.topCrop !== undefined) ? titleCase(altInfo.topCrop) : titleCase(data.prediction));
       var cropEl = document.getElementById("crop");
       cropEl.textContent = cropName;
       cropEl.title = cropName;
       var scoreEl = document.getElementById("cropScore");
       if (scoreEl) {
-        if (altInfo.topScore !== null) {
+        if (!isNoSample && altInfo.topScore !== null) {
           scoreEl.textContent = Math.round(altInfo.topScore * 100) + "% match";
           scoreEl.classList.remove("d-none");
         } else {

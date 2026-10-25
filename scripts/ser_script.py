@@ -254,11 +254,19 @@ def main():
                 print(f"Skipping malformed row: {line} ({e})")
                 continue
 
+            n, p, k = values[0], values[1], values[2]
+            print(f"--- Sensor Data: {line} ---")
+            print(f"--- Rainfall: {rainfall:.2f}mm ---")
+
+            if n <= 0 and p <= 0 and k <= 0:
+                print("Recommended Crop: [Please insert soil sample]")
+                print("STATUS: NPK readings are all 0 mg/kg (no soil sample detected).")
+                print("ACTION: Please insert the sensor prongs firmly into a moist soil sample.")
+                continue
+
             current_readings = pd.DataFrame([values], columns=COLS)
             prediction = model.predict(current_readings)[0]
 
-            print(f"--- Sensor Data: {line} ---")
-            print(f"--- Rainfall: {rainfall:.2f}mm ---")
             print(f"Recommended Crop: {prediction}")
             if hasattr(model, "explain_reading"):
                 _exp = model.explain_reading(values)
