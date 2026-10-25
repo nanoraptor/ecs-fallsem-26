@@ -148,31 +148,32 @@ void loop() {
   lcd.clear();
   if (n == 0 && p == 0 && k == 0) {
     // Zero sample detected (sensor in air / awaiting moist soil)
+    // Always displays live sensor readings on Line 0 and insertion prompt on Line 1
     if (!showAltScreen) {
-      lcd.setCursor(0, 0);
-      lcd.print("Please Insert");
-      lcd.setCursor(0, 1);
-      lcd.print("Soil Sample...");
-    } else {
       lcd.setCursor(0, 0);
       lcd.print("pH:"); lcd.print(phValue, 1);
       lcd.print(" T:"); lcd.print(dhtTemp, 1); lcd.print("C");
       lcd.setCursor(0, 1);
-      lcd.print("N:0  P:0  K:0");
+      lcd.print("Insert Soil Smpl");
+    } else {
+      lcd.setCursor(0, 0);
+      lcd.print("N:0   P:0   K:0 ");
+      lcd.setCursor(0, 1);
+      lcd.print("Insert Soil Smpl");
     }
   } else if (n < 0 && p < 0 && k < 0) {
     // Sensor disconnected / Modbus communication timeout
     if (!showAltScreen) {
       lcd.setCursor(0, 0);
-      lcd.print("NPK Sensor Error");
-      lcd.setCursor(0, 1);
-      lcd.print("Check RS485 Wire");
-    } else {
-      lcd.setCursor(0, 0);
       lcd.print("pH:"); lcd.print(phValue, 1);
       lcd.print(" T:"); lcd.print(dhtTemp, 1); lcd.print("C");
       lcd.setCursor(0, 1);
-      lcd.print("Sensor Offline");
+      lcd.print("NPK Sensor Error");
+    } else {
+      lcd.setCursor(0, 0);
+      lcd.print("N:--  P:--  K:--");
+      lcd.setCursor(0, 1);
+      lcd.print("Check RS485 Wire");
     }
   } else {
     // Valid soil readings
