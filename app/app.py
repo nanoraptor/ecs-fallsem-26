@@ -818,16 +818,16 @@ def get_reading():
         X = pd.DataFrame([ml_values[:7]], columns=feature_names)
         prediction = model.predict(X)[0]
 
-        # Real top-3 class probabilities for the alternatives strip
+        # Real top-4 class probabilities for the alternatives strip
         top_crops = []
         try:
             proba = model.predict_proba(X)[0]
             classes = [str(c) for c in list(model.classes_)]
             ranked = sorted(
                 range(len(classes)), key=lambda i: float(proba[i]), reverse=True
-            )[:3]
+            )[:4]
             top_crops = [
-                {"crop": classes[i], "score": round(float(proba[i]), 4)}
+                {"crop": classes[i], "score": round(float(proba[i]), 6)}
                 for i in ranked
             ]
         except Exception:

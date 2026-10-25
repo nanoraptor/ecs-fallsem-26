@@ -283,21 +283,17 @@
     if (!list || !list.length) { box.innerHTML = ""; return { topScore: null }; }
     var top = { crop: String(list[0].crop), score: Number(list[0].score) };
     if (!isFinite(top.score)) top.score = 1;
-    var topPct = Math.round(top.score * 100);
 
-    // If top crop is overwhelmingly decisive (>= 95% match), suppress runner-ups
-    if (topPct >= 95) {
-      box.innerHTML = "";
-      return { topScore: top.score, topCrop: top.crop };
-    }
-
-    // Filter valid runner-ups with meaningful probability (>= 5% and strictly not 0%)
+    // Filter valid runner-ups with non-zero probability (strictly not 0.0%)
     var validAlts = [];
-    for (var i = 1; i < Math.min(list.length, 4); i++) {
-      var s = Math.min(Number(list[i].score), top.score);
-      var pct = Math.round(s * 100);
-      if (pct >= 5) {
-        validAlts.push({ crop: list[i].crop, pct: pct });
+    for (var i = 1; i < list.length; i++) {
+      var s = Number(list[i].score);
+      if (!isFinite(s) || s <= 0) continue;
+      var pctVal = s * 100;
+      var formatted = pctVal.toFixed(1);
+      // Only include if strictly greater than zero (>= 0.1%)
+      if (parseFloat(formatted) > 0) {
+        validAlts.push({ crop: list[i].crop, pctText: formatted + "%" });
       }
     }
 
@@ -307,15 +303,15 @@
     }
 
     var html = '<span class="ss-alts-note">Runner-up fits</span>';
-    for (var j = 0; j < validAlts.length; j++) {
-      html += '<span class="ss-alt"><b>' + escHtml(titleCase(validAlts[j].crop)) + '</b><span>' + validAlts[j].pct + '%</span></span>';
+    for (var j = 0; j < Math.min(validAlts.length, 3); j++) {
+      html += '<span class="ss-alt"><b>' + escHtml(titleCase(validAlts[j].crop)) + '</b><span>' + validAlts[j].pctText + '</span></span>';
     }
     box.innerHTML = html;
     return { topScore: top.score, topCrop: top.crop };
   }
 
   /* ---------- plain-language crop explanation (Pillar 3) ---------- */
-  function renderExplanation(data, cropName) {
+  function renderExplanation(data, cropName, isNoSample) {
     var exp = data && data.explanation;
     var titleEl = document.getElementById("explainTitle");
     var summaryEl = document.getElementById("fitSummary");
@@ -324,11 +320,14 @@
     var badgeEl = document.getElementById("suitabilityBadge");
     var soilNoteEl = document.getElementById("cropSoilNote");
 
-    if (data && data.npk_missing) {
+    if (isNoSample || (data && data.npk_missing) || /Please insert/i.test(cropName)) {
       if (titleEl) titleEl.textContent = "◉ 03 / Awaiting Soil Sample";
-      if (badgeEl) badgeEl.textContent = "Sample required";
+      if (badgeEl) {
+        badgeEl.textContent = "Awaiting sample";
+        badgeEl.classList.remove("d-none");
+      }
       if (soilNoteEl) soilNoteEl.textContent = "Please insert probes firmly into moist soil.";
-      if (summaryEl) summaryEl.textContent = exp && exp.summary ? exp.summary : "NPK sensor readings are 0 mg/kg across all nutrients. Please insert the probes firmly into a moist soil sample to obtain recommendations.";
+      if (summaryEl) summaryEl.textContent = "NPK sensor readings are 0 mg/kg across all nutrients. Please insert the probes firmly into a moist soil sample to obtain crop and fertilizer recommendations.";
       if (factorsEl) factorsEl.innerHTML = '<div class="text-secondary small py-2 px-1">Nutrient breakdown will appear once soil sample is detected.</div>';
       if (cmpEl) cmpEl.textContent = "";
       return;
@@ -378,29 +377,43 @@
 
   /* ---------- fertilizer chips + one-line summary ---------- */
   var CHIP_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5.5L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8.5V3"/></svg>';
-  function renderFertilizer(mix, reason) {
+  function renderFertilizer(mix, reason, isNoSample) {
     var box = document.getElementById("fertChips");
     var hidden = document.getElementById("fertilizer");
+    var rateEl = document.getElementById("fertRate");
+    var fertEl = document.getElementById("fertilizerReason");
+
+    if (isNoSample || /Awaiting/i.test(mix) || /Please insert/i.test(mix)) {
+      if (hidden) { hidden.textContent = "Awaiting soil sample"; hidden.title = "Awaiting soil sample"; }
+      if (box) {
+        box.innerHTML = '<span class="ss-chip">' + CHIP_ICON + 'Awaiting soil sample</span>';
+        box.title = "Awaiting soil sample";
+      }
+      if (fertEl) {
+        fertEl.textContent = "Insert NPK sensor into moist soil to calculate fertilizer requirements.";
+        fertEl.title = "Insert NPK sensor into moist soil to calculate fertilizer requirements.";
+      }
+      if (rateEl) {
+        rateEl.innerHTML = "";
+      }
+      return;
+    }
+
     if (hidden) { hidden.textContent = mix; hidden.title = mix; }
     if (box) {
       var parts = String(mix).split("+").map(function (p) { return p.trim(); }).filter(Boolean).slice(0, 6);
       box.innerHTML = parts.map(function (p) { return '<span class="ss-chip">' + CHIP_ICON + escHtml(p) + "</span>"; }).join("");
       box.title = mix;
     }
-    var fertEl = document.getElementById("fertilizerReason");
     if (fertEl) {
-      if (/Awaiting/i.test(mix)) {
-        fertEl.textContent = reason || "Insert NPK sensor into moist soil to calculate fertilizer requirements.";
-      } else {
-        var bits = [];
-        if (/Nitrogen is low/i.test(reason)) bits.push("low nitrogen");
-        if (/Phosphorus is low/i.test(reason)) bits.push("low phosphorus");
-        if (/Potassium is low/i.test(reason)) bits.push("low potassium");
-        if (/lime/i.test(mix)) bits.push("lime for acidity");
-        if (/compost/i.test(mix)) bits.push("compost for alkalinity");
-        var oneLine = bits.length ? "Formulated to correct " + bits.join(", ") + "." : "Balanced maintenance formulation for the recommended crop.";
-        fertEl.textContent = oneLine;
-      }
+      var bits = [];
+      if (/Nitrogen is low/i.test(reason)) bits.push("low nitrogen");
+      if (/Phosphorus is low/i.test(reason)) bits.push("low phosphorus");
+      if (/Potassium is low/i.test(reason)) bits.push("low potassium");
+      if (/lime/i.test(mix)) bits.push("lime for acidity");
+      if (/compost/i.test(mix)) bits.push("compost for alkalinity");
+      var oneLine = bits.length ? "Formulated to correct " + bits.join(", ") + "." : "Balanced maintenance formulation for the recommended crop.";
+      fertEl.textContent = oneLine;
       fertEl.title = reason || "";
     }
     renderFertRate(String(mix));
@@ -583,14 +596,17 @@
       var scoreEl = document.getElementById("cropScore");
       if (scoreEl) {
         if (!isNoSample && altInfo.topScore !== null) {
-          scoreEl.textContent = Math.round(altInfo.topScore * 100) + "% match";
+          var topPctVal = Number(altInfo.topScore) * 100;
+          // Format with 1 decimal place; cap at 99.9% so it never shows flat 100%
+          var displayScore = (topPctVal >= 99.95) ? "99.9" : topPctVal.toFixed(1);
+          scoreEl.textContent = displayScore + "% match";
           scoreEl.classList.remove("d-none");
         } else {
           scoreEl.classList.add("d-none");
         }
       }
-      renderFertilizer(data.fertilizer, data.fertilizer_reason || "");
-      renderExplanation(data, cropName);
+      renderFertilizer(data.fertilizer, data.fertilizer_reason || "", isNoSample);
+      renderExplanation(data, cropName, isNoSample);
 
       var rawEl = document.getElementById("raw");
       var rawFull = String(data.raw);
