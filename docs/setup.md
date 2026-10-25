@@ -1,68 +1,137 @@
-# SoilSage: Hardware Setup & Wiring Guide
+# SoilSage: 38-Pin ESP32 Hardware Setup & Wiring Guide
 
-**Created by:** Rahul, Abhiram, Nikhil, Sanjeev, Saketh  
-**Course:** ECS2001 - Project Ideation, Design and Prototyping  
+**Course:** ECS2001 — Project Ideation, Design and Prototyping  
+**Created by:** Rahul, Abhiram, Nikhil, Sanjeev, Saketh and Shyam  
 
-## Core components
+> [!IMPORTANT]
+> **Hardware Specification:**  
+> This project is designed and wired **strictly for the 38-Pin ESP32 NodeMCU (DevKitC V4 / NodeMCU-32S)**.  
+> **Do NOT use the 30-Pin ESP32 DevKit V1** — the pinouts, GPIO locations, and power routing differ significantly.
 
-| Component | Qty | Purpose |
-|---|---:|---|
-| ESP32 DevkitC V4 (38 Pin) | 1 | Main controller |
-| Analog pH sensor module + probe | 1 | pH reading |
-| RS485 NPK Sensor | 1 | NPK reading |
-| MAX485 TTL-to-RS485 Converter | 1 | Serial comms for NPK |
-| External DC power supply (5-30V) | 1 | Powering NPK sensor |
-| DS18B20 waterproof temp sensor | 1 | Water temperature (used for pH compensation) |
-| DHT11 sensor module | 1 | Humidity & Temp input for model |
-| 16x2 I2C LCD Display | 1 | Real-time sensor readout display |
-| 10kΩ resistor | 1 | Series current-limiting protection resistor for pH sensor |
-| 4.7kΩ resistor | 1 | DS18B20 data pull-up |
-| Breadboard | 1 | Wiring/power distribution |
-| Jumper wires (M-M / M-F) | As needed | Connections |
-| USB cable | 1 | Power + programming |
+---
 
-## ESP32 wiring (for `esp32/esp32_full/esp32_full.ino`)
+## 1. 38-Pin ESP32 Board Pinout Diagram
 
-| Module | Module pin | ESP32 pin | Note |
+The 38-Pin ESP32 board features two rows of 19 pins with standard 0.1" (2.54mm) pitch:
+
+```text
+                             38-PIN ESP32 DEVKIT
+                                (Top View)
+                           +------------------+
+                     3V3 --|  1 [ ]    [ ] 38 |-- GND (Common Ground)
+                      EN --|  2 [ ]    [ ] 37 |-- D23 (GPIO 23)
+           (GPIO 36)  VP --|  3 [ ]    [ ] 36 |-- D22 (GPIO 22) -> LCD SCL
+           (GPIO 39)  VN --|  4 [ ]    [ ] 35 |-- TX0 (GPIO 1)
+   pH In   (GPIO 34) D34 --|  5 [ ]    [ ] 34 |-- RX0 (GPIO 3)
+           (GPIO 35) D35 --|  6 [ ]    [ ] 33 |-- D21 (GPIO 21) -> LCD SDA
+           (GPIO 32) D32 --|  7 [ ]    [ ] 32 |-- D19 (GPIO 19)
+           (GPIO 33) D33 --|  8 [ ]    [ ] 31 |-- D18 (GPIO 18) -> DHT11 Data
+           (GPIO 25) D25 --|  9 [ ]    [ ] 30 |-- D5  (GPIO 5)  -> DS18B20 Temp
+           (GPIO 26) D26 --| 10 [ ]    [ ] 29 |-- TX2 (GPIO 17) -> MAX485 DI
+           (GPIO 27) D27 --| 11 [ ]    [ ] 28 |-- RX2 (GPIO 16) -> MAX485 RO
+           (GPIO 14) D14 --| 12 [ ]    [ ] 27 |-- D4  (GPIO 4)  -> MAX485 DE+RE
+           (GPIO 12) D12 --| 13 [ ]    [ ] 26 |-- D2  (GPIO 2)  (Onboard LED)
+                     GND --| 14 [ ]    [ ] 25 |-- D15 (GPIO 15)
+           (GPIO 13) D13 --| 15 [ ]    [ ] 24 |-- D8  (SD1)
+            (SD2)     D9 --| 16 [ ]    [ ] 23 |-- D7  (SD0)
+            (SD3)    D10 --| 17 [ ]    [ ] 22 |-- D6  (CLK)
+            (CMD)    D11 --| 18 [ ]    [ ] 21 |-- D0  (GPIO 0)
+          5V Power   VIN --| 19 [ ]    [ ] 20 |-- CLK
+                           +--------USB-------+
+```
+
+---
+
+## 2. Complete Module Connection Table
+
+All connections are mapped specifically to the **38-Pin ESP32**:
+
+| Peripheral Module | Module Pin | ESP32 Pin (38-Pin Board) | Notes & Requirements |
 |---|---|---|---|
-| pH sensor | `VCC` | `5V` (VIN) |
-| pH sensor | `GND` | `GND` |
-| pH sensor | `AO` / `SIG` | `GPIO34` | Connect in series through a **10kΩ protection resistor** (Sensor `AO` -> 10kΩ resistor -> `GPIO34`). Protects the 3.3V ESP32 ADC pin. |
-| MAX485 | `VCC` | `3.3V` / `5V` | ESP32 logic is 3.3V, if powering MAX485 with 5V, ensure RO line to RX doesn't exceed 3.3V (use divider or 3.3V MAX3485) |
-| MAX485 | `GND` | `GND` |
-| MAX485 | `DI` (TX) | `GPIO17` (TX2)|
-| MAX485 | `DE` & `RE` | `GPIO4` |
-| MAX485 | `RO` (RX) | `GPIO16` (RX2)|
-| MAX485 | `A` & `B` | NPK Sensor `A`/`B` |
-| NPK Sensor| `VCC` / `GND` | Ext Power | Use external DC power supply (e.g., 12V) and connect its ground to ESP32 ground. |
-| DS18B20 | `VCC` | `3.3V` / `5V` |
-| DS18B20 | `GND` | `GND` |
-| DS18B20 | `DATA` | `GPIO5` | Use 4.7k pullup |
-| DHT11 | `VCC` | `3.3V` / `5V` |
-| DHT11 | `GND` | `GND` |
-| DHT11 | `DATA` | `GPIO18` |
-| I2C LCD | `VCC` | `5V` (VIN) | Needs 5V for backlight |
-| I2C LCD | `GND` | `GND` |
-| I2C LCD | `SDA` | `GPIO21` |
-| I2C LCD | `SCL` | `GPIO22` |
+| **Analog pH Sensor Module** | `VCC` | `VIN` (5V) | Powered from 5V rail for operational amplifier stability |
+| | `GND` | `GND` | Common ground rail |
+| | `SIG` / `AO` | **`D34`** (GPIO 34) | **10kΩ series resistor** between sensor `AO` and `D34` (limits ESD & protects ADC1_CH6) |
+| **RS485 MAX485 Converter** | `VCC` | `VIN` (5V) or `3V3` | Powers the TTL transceiver |
+| | `GND` | `GND` | Tied to ESP32 ground |
+| | `RO` (Receiver Out) | **`RX2`** (GPIO 16) | Hardware UART2 Receive line |
+| | `DI` (Driver In) | **`TX2`** (GPIO 17) | Hardware UART2 Transmit line |
+| | `DE` (Driver Enable) | **`D4`** (GPIO 4) | Jumpered together with `RE` |
+| | `RE` (Receiver Enable) | **`D4`** (GPIO 4) | Low = Listen, High = Transmit |
+| | `A` (RS485 +) | NPK Yellow Cable | Differential RS485 data line A |
+| | `B` (RS485 -) | NPK Blue Cable | Differential RS485 data line B |
+| **NPK Soil Sensor (3-Prong)** | Brown Wire (`VCC`) | External DC Power (+) | **12V DC External Power Supply** (9V–24V supported) |
+| | Black Wire (`GND`) | External DC Power (-) | **MUST be bridged to ESP32 GND** (Common Reference) |
+| | Yellow Wire (`A`) | MAX485 `A` terminal | RS485 Non-inverting |
+| | Blue Wire (`B`) | MAX485 `B` terminal | RS485 Inverting |
+| **DS18B20 Temp Probe** | `VCC` (Red) | `3V3` | 3.3V logic level |
+| | `GND` (Black) | `GND` | Common ground |
+| | `DATA` (Yellow/White)| **`D5`** (GPIO 5) | **4.7kΩ pull-up resistor** between `DATA` and `3V3` |
+| **DHT11 Air Temp & Hum** | `VCC` (+) | `3V3` | 3.3V logic level |
+| | `GND` (-) | `GND` | Common ground |
+| | `DATA` (Out) | **`D18`** (GPIO 18) | Single-bus digital communication |
+| **16×2 I2C LCD Display** | `VCC` | `VIN` (5V) | Requires 5V for crisp backlight & contrast |
+| | `GND` | `GND` | Common ground |
+| | `SDA` | **`D21`** (GPIO 21) | ESP32 Hardware I2C Data (`0x27` address) |
+| | `SCL` | **`D22`** (GPIO 22) | ESP32 Hardware I2C Clock |
 
-## Notes
+---
 
-- Keep **all grounds common** (every module GND + External Power Supply GND connected to ESP32 GND).
-- **pH Sensor Protection:** ESP32 ADC pins tolerate 3.3V max. Use a 10kΩ series resistor between the pH analog output and GPIO34 to limit current and protect the internal ESD diodes if the probe is unplugged.
-- The `esp32_full.ino` firmware connects directly to Wi-Fi and sends data via HTTP POST to the dashboard. You must update `ssid`, `password`, and `serverUrl` in the `.ino` file.
-- Start the dashboard using `python3 app/app.py --esp32` to listen for Wi-Fi sensor data.
+## 3. Power Architecture & Critical Grounding Rule
 
-## Additional Stuff to buy and important notes
+```text
+ +-------------------------+
+ | External 12V DC Supply  |
+ |  (+) ------------------------------------------> NPK Sensor Brown (VCC)
+ |  (-) --------+---------------------------------> NPK Sensor Black (GND)
+ +--------------|----------+
+                |
+                +-- COMMON GROUND BRIDGE (CRITICAL!)
+                |
+ +--------------|----------+
+ | ESP32 38-Pin Board      |
+ |  GND --------+----------> MAX485 GND, pH GND, DS18B20 GND, DHT11 GND, LCD GND
+ |  VIN (5V) --------------> MAX485 VCC, pH VCC, LCD VCC
+ |  3V3 -------------------> DS18B20 VCC, DHT11 VCC, 4.7kΩ Pull-up
+ |  USB (5V) --------------> Powered via PC / Power Bank USB
+ +-------------------------+
+```
 
-- You will need pH buffer solutions to calibrate the pH electrode (as most of the electrodes are non-calibrated out of the box).
-- Distilled water is needed to clean the pH sensor between every soil sample test.
-- The soil solutions should be made with distilled water in a 1:2 ratio of soil and water. The electrode will get damaged if it is dipped in a solution which contains a lot of solid sand particles. Let the slurry/solution settle or filter out the solution.
-- A pH electrode stand will be helpful in handling the pH electrode. The bulb of the pH electrode should not touch the bottom of the container, as it will break the electrode. You can also use microphone stands with minor tweaks.
-- The DS18B20 probe is required because the pH sensor used in this project does not have built-in temperature compensation.
-- **Calibrated Parameters (Dual-Slope):** Neutral reference voltage `PH_VOLTAGE_PH7 = 1.114V`, acidic slope `0.1805 V/pH`, alkaline slope `0.1438 V/pH` (calibrated with SDFCL pH 4.0, 7.0, and 9.2 capsules at ~30.5°C).
+> [!CAUTION]
+> **Common Ground Requirement:**  
+> The external 12V DC power supply ground **MUST** be connected directly to the ESP32 `GND` rail on your breadboard. Without this common ground, the RS485 differential signals float, causing communication timeouts (`NPK Sensor Disconnected`).
 
-## Potential improvements
+---
 
-- The webui (app.py) can be hosted on a cloud server for remote access.
-- Implementing a robust PCB instead of a breadboard for the complex power distribution.
+## 4. Sensor Calibration & Agricultural Chemistry
+
+### Dual-Slope Calibrated pH
+Standard glass-bulb pH electrodes exhibit different voltage slopes in acidic vs. alkaline regimes and shift with temperature (Nernst equation):
+
+$$V_{\text{pH}} = V_{\text{pH7}} - \text{Slope} \times (\text{pH} - 7) \times \left(\frac{T_K}{298.15}\right)$$
+
+SoilSage implements dual-slope temperature compensation utilizing live solution temperature from the DS18B20 probe:
+- **Reference Voltage ($V_{\text{pH7}}$):** `1.114 V`
+- **Acidic Slope ($< 7.0$):** `0.1805 V/pH` (normalized to 25°C)
+- **Alkaline Slope ($\ge 7.0$):** `0.1438 V/pH` (normalized to 25°C)
+- Calibrated using SDFCL analytical buffer capsules at pH 4.0, 7.0, and 9.2 at ~30.5°C.
+
+### Safe Soil Slurry Preparation
+1. Mix soil and distilled water in a **1:2 weight ratio** (e.g., 20g soil in 40ml distilled water).
+2. Stir vigorously for 2 minutes and allow solid sand particles to settle for 5 minutes.
+3. Submerge only the glass bulb and reference junction into the supernatant liquid.
+4. **Never** force the pH electrode into dry or gritty soil — use the stainless-steel NPK prongs for direct soil insertion.
+
+---
+
+## 5. Fail-Safe Zero-Sensing & Display Protocols
+
+When the NPK sensor is dry or in the air, electric conductivity is zero ($N = 0, P = 0, K = 0$).
+
+1. **16×2 LCD Readout:**
+   - **Line 0:** Shows live telemetry (`pH:6.5  T:30.5C` alternating with `N:0   P:0   K:0 `).
+   - **Line 1:** Persistently displays `Insert Soil Smpl` so you always know the probe needs moist soil.
+2. **Web Dashboard Console:**
+   - **Pillar 01:** Displays `Please insert soil sample` without match percentage.
+   - **Pillar 02:** Displays `Awaiting soil sample` and clears chemical rates.
+   - **Pillar 03:** Header shifts to `◉ 03 / Awaiting Soil Sample`.
+   - **Sensor Readings Tiles:** Displays `0 mg/kg` (status `Low`) with active indicators (not greyed out).

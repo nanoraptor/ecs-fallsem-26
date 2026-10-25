@@ -1,6 +1,6 @@
 #include <HardwareSerial.h>
 
-// --- Pin Definitions for ESP32 (30-Pin / 38-Pin) ---
+// --- Pin Definitions for ESP32 (38-Pin NodeMCU) ---
 #define RE_DE_PIN 4  // Connect to MAX485 DE and RE (tied together)
 #define RX_PIN 16     // Connect to MAX485 RO
 #define TX_PIN 17     // Connect to MAX485 DI
