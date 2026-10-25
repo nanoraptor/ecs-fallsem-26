@@ -283,10 +283,32 @@
     if (!list || !list.length) { box.innerHTML = ""; return { topScore: null }; }
     var top = { crop: String(list[0].crop), score: Number(list[0].score) };
     if (!isFinite(top.score)) top.score = 1;
-    var html = '<span class="ss-alts-note">Runner-up fits</span>';
+    var topPct = Math.round(top.score * 100);
+
+    // If top crop is overwhelmingly decisive (>= 95% match), suppress runner-ups
+    if (topPct >= 95) {
+      box.innerHTML = "";
+      return { topScore: top.score, topCrop: top.crop };
+    }
+
+    // Filter valid runner-ups with meaningful probability (>= 5% and strictly not 0%)
+    var validAlts = [];
     for (var i = 1; i < Math.min(list.length, 4); i++) {
       var s = Math.min(Number(list[i].score), top.score);
-      html += '<span class="ss-alt"><b>' + escHtml(titleCase(list[i].crop)) + '</b><span>' + Math.round(s * 100) + '%</span></span>';
+      var pct = Math.round(s * 100);
+      if (pct >= 5) {
+        validAlts.push({ crop: list[i].crop, pct: pct });
+      }
+    }
+
+    if (validAlts.length === 0) {
+      box.innerHTML = "";
+      return { topScore: top.score, topCrop: top.crop };
+    }
+
+    var html = '<span class="ss-alts-note">Runner-up fits</span>';
+    for (var j = 0; j < validAlts.length; j++) {
+      html += '<span class="ss-alt"><b>' + escHtml(titleCase(validAlts[j].crop)) + '</b><span>' + validAlts[j].pct + '%</span></span>';
     }
     box.innerHTML = html;
     return { topScore: top.score, topCrop: top.crop };
