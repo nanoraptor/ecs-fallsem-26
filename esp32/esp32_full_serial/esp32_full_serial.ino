@@ -61,11 +61,14 @@ int readAverageRaw(uint8_t pin, uint8_t samples, uint8_t sampleDelayMs = 10) {
 
 void setup() {
   Serial.begin(115200);
+  delay(500);
   
+  // RS485 Transceiver Enable
+  pinMode(RE_DE_PIN, OUTPUT);
+  digitalWrite(RE_DE_PIN, LOW); // Start in Receive mode
+
   // Initialize RS485 on Serial2
   Serial2.begin(4800, SERIAL_8N1, RX_PIN, TX_PIN);
-  pinMode(RE_DE_PIN, OUTPUT);
-  digitalWrite(RE_DE_PIN, LOW); // Receive mode
 
   waterTempSensor.begin();
   dht.begin();
