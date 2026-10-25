@@ -146,19 +146,50 @@ void loop() {
   // Update LCD
   static bool showAltScreen = false;
   lcd.clear();
-  if (!showAltScreen) {
-    lcd.setCursor(0, 0);
-    lcd.print("pH:"); lcd.print(phValue, 1);
-    lcd.print(" T:"); lcd.print(dhtTemp, 1); lcd.print("C");
-    lcd.setCursor(0, 1);
-    lcd.print("N:"); lcd.print(n);
-    lcd.print(" P:"); lcd.print(p);
-    lcd.print(" K:"); lcd.print(k);
+  if (n == 0 && p == 0 && k == 0) {
+    // Zero sample detected (sensor in air / awaiting moist soil)
+    if (!showAltScreen) {
+      lcd.setCursor(0, 0);
+      lcd.print("Please Insert");
+      lcd.setCursor(0, 1);
+      lcd.print("Soil Sample...");
+    } else {
+      lcd.setCursor(0, 0);
+      lcd.print("pH:"); lcd.print(phValue, 1);
+      lcd.print(" T:"); lcd.print(dhtTemp, 1); lcd.print("C");
+      lcd.setCursor(0, 1);
+      lcd.print("N:0  P:0  K:0");
+    }
+  } else if (n < 0 && p < 0 && k < 0) {
+    // Sensor disconnected / Modbus communication timeout
+    if (!showAltScreen) {
+      lcd.setCursor(0, 0);
+      lcd.print("NPK Sensor Error");
+      lcd.setCursor(0, 1);
+      lcd.print("Check RS485 Wire");
+    } else {
+      lcd.setCursor(0, 0);
+      lcd.print("pH:"); lcd.print(phValue, 1);
+      lcd.print(" T:"); lcd.print(dhtTemp, 1); lcd.print("C");
+      lcd.setCursor(0, 1);
+      lcd.print("Sensor Offline");
+    }
   } else {
-    lcd.setCursor(0, 0);
-    lcd.print("Sol Temp: "); lcd.print(waterTemp, 1); lcd.print("C");
-    lcd.setCursor(0, 1);
-    lcd.print("Humidity: "); lcd.print(humidity, 1); lcd.print("%");
+    // Valid soil readings
+    if (!showAltScreen) {
+      lcd.setCursor(0, 0);
+      lcd.print("pH:"); lcd.print(phValue, 1);
+      lcd.print(" T:"); lcd.print(dhtTemp, 1); lcd.print("C");
+      lcd.setCursor(0, 1);
+      lcd.print("N:"); lcd.print(n);
+      lcd.print(" P:"); lcd.print(p);
+      lcd.print(" K:"); lcd.print(k);
+    } else {
+      lcd.setCursor(0, 0);
+      lcd.print("Sol Temp: "); lcd.print(waterTemp, 1); lcd.print("C");
+      lcd.setCursor(0, 1);
+      lcd.print("Humidity: "); lcd.print(humidity, 1); lcd.print("%");
+    }
   }
   showAltScreen = !showAltScreen;
 
