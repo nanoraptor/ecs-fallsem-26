@@ -54,58 +54,92 @@
 > This system is built specifically for the **38-Pin ESP32 NodeMCU (DevKitC V4 / NodeMCU-32S)**.  
 > **Do NOT use the 30-Pin DevKit V1** — pinout locations and header assignments differ.
 
-### 38-Pin ESP32 Header Diagram
+### 38-Pin ESP32 Header Diagram (NodeMCU ESP-32S)
 
+Below is the pinout matching your **ESP-32S NodeMCU V1.1 (38-Pin)** board.  
+Both the **Top (Breadboard View)** and the **Bottom (Silkscreen View as printed on the back)** are provided for easy reference:
+
+#### Top View (Component & Breadboard View)
 ```text
-                           38-PIN ESP32 DEVKIT
-                                (Top View)
-                           +------------------+
-                     3V3 --|  1 [ ]    [ ] 38 |-- GND (Common Ground)
-                      EN --|  2 [ ]    [ ] 37 |-- D23 (GPIO 23)
-           (GPIO 36)  VP --|  3 [ ]    [ ] 36 |-- D22 (GPIO 22) -> LCD SCL
-           (GPIO 39)  VN --|  4 [ ]    [ ] 35 |-- TX0 (GPIO 1)
-   pH In   (GPIO 34) D34 --|  5 [ ]    [ ] 34 |-- RX0 (GPIO 3)
-           (GPIO 35) D35 --|  6 [ ]    [ ] 33 |-- D21 (GPIO 21) -> LCD SDA
-           (GPIO 32) D32 --|  7 [ ]    [ ] 32 |-- D19 (GPIO 19)
-           (GPIO 33) D33 --|  8 [ ]    [ ] 31 |-- D18 (GPIO 18) -> DHT11 Data
-           (GPIO 25) D25 --|  9 [ ]    [ ] 30 |-- D5  (GPIO 5)  -> DS18B20 Temp
-           (GPIO 26) D26 --| 10 [ ]    [ ] 29 |-- TX2 (GPIO 17) -> MAX485 DI
-           (GPIO 27) D27 --| 11 [ ]    [ ] 28 |-- RX2 (GPIO 16) -> MAX485 RO
-           (GPIO 14) D14 --| 12 [ ]    [ ] 27 |-- D4  (GPIO 4)  -> MAX485 DE+RE
-           (GPIO 12) D12 --| 13 [ ]    [ ] 26 |-- D2  (GPIO 2)  (Onboard LED)
-                     GND --| 14 [ ]    [ ] 25 |-- D15 (GPIO 15)
-           (GPIO 13) D13 --| 15 [ ]    [ ] 24 |-- D8  (SD1)
-            (SD2)     D9 --| 16 [ ]    [ ] 23 |-- D7  (SD0)
-            (SD3)    D10 --| 17 [ ]    [ ] 22 |-- D6  (CLK)
-            (CMD)    D11 --| 18 [ ]    [ ] 21 |-- D0  (GPIO 0)
-          5V Power   VIN --| 19 [ ]    [ ] 20 |-- CLK
-                           +--------USB-------+
+                         38-PIN ESP32 NodeMCU (ESP-32S)
+                             TOP VIEW (BREADBOARD)
+                               [ Antenna Area ]
+                           +----------------------+
+                     3V3 --|  1 [ ]        [ ] 38 |-- GND (Common Ground)
+                      EN --|  2 [ ]        [ ] 37 |-- P23 (GPIO 23)
+       (GPIO 36)     SVP --|  3 [ ]        [ ] 36 |-- P22 (GPIO 22) -> LCD SCL
+       (GPIO 39)     SVN --|  4 [ ]        [ ] 35 |-- TX  (GPIO 1 / TX0)
+pH In  (GPIO 34)     P34 --|  5 [ ]        [ ] 34 |-- RX  (GPIO 3 / RX0)
+                     P35 --|  6 [ ]        [ ] 33 |-- P21 (GPIO 21) -> LCD SDA
+                     P32 --|  7 [ ]        [ ] 32 |-- GND (Ground)
+                     P33 --|  8 [ ]        [ ] 31 |-- P19 (GPIO 19)
+                     P25 --|  9 [ ]        [ ] 30 |-- P18 (GPIO 18) -> DHT11 Data
+                     P26 --| 10 [ ]        [ ] 29 |-- P5  (GPIO 5)  -> DS18B20 Temp
+                     P27 --| 11 [ ]        [ ] 28 |-- P17 (GPIO 17) -> MAX485 DI (TX2)
+                     P14 --| 12 [ ]        [ ] 27 |-- P16 (GPIO 16) -> MAX485 RO (RX2)
+                     P12 --| 13 [ ]        [ ] 26 |-- P4  (GPIO 4)  -> MAX485 DE+RE
+                     GND --| 14 [ ]        [ ] 25 |-- P0  (GPIO 0 / Boot)
+                     P13 --| 15 [ ]        [ ] 24 |-- P2  (GPIO 2 / Onboard LED)
+                     SD2 --| 16 [ ]        [ ] 23 |-- P15 (GPIO 15)
+                     SD3 --| 17 [ ]        [ ] 22 |-- SD1 (Flash SD1)
+                     CMD --| 18 [ ]        [ ] 21 |-- SDD (Flash SD0)
+5V In / VIN           5V --| 19 [ ]        [ ] 20 |-- CLK (Flash CLK)
+                           +----------USB---------+
+```
+
+#### Bottom View (Silkscreen View on Underside of PCB)
+*(Matches the silkscreen text printed on the back of your board)*
+```text
+                         38-PIN ESP32 NodeMCU (ESP-32S)
+                       BOTTOM VIEW (SILKSCREEN / BACK)
+                               [ Antenna Area ]
+                           +----------------------+
+         (Common Ground) GND --| 38 [ ]        [ ]  1 |-- 3V3
+                    (GPIO 23) P23 --| 37 [ ]        [ ]  2 |-- EN
+            LCD SCL <- (GPIO 22) P22 --| 36 [ ]        [ ]  3 |-- SVP     (GPIO 36)
+             TX0 / GPIO 1 <-  TX  --| 35 [ ]        [ ]  4 |-- SVN     (GPIO 39)
+             RX0 / GPIO 3 <-  RX  --| 34 [ ]        [ ]  5 |-- P34     (GPIO 34) -> pH In
+            LCD SDA <- (GPIO 21) P21 --| 33 [ ]        [ ]  6 |-- P35
+                    (Ground) GND --| 32 [ ]        [ ]  7 |-- P32
+                    (GPIO 19) P19 --| 31 [ ]        [ ]  8 |-- P33
+         DHT11 Data <- (GPIO 18) P18 --| 30 [ ]        [ ]  9 |-- P25
+       DS18B20 Temp <- (GPIO 5)  P5  --| 29 [ ]        [ ] 10 |-- P26
+       MAX485 DI (TX2) <- (GPIO 17) P17 --| 28 [ ]        [ ] 11 |-- P27
+       MAX485 RO (RX2) <- (GPIO 16) P16 --| 27 [ ]        [ ] 12 |-- P14
+     MAX485 DE+RE <- (GPIO 4)  P4  --| 26 [ ]        [ ] 13 |-- P12
+                    (GPIO 0)  P0  --| 25 [ ]        [ ] 14 |-- GND     (Ground)
+                    (GPIO 2)  P2  --| 24 [ ]        [ ] 15 |-- P13
+                    (GPIO 15) P15 --| 23 [ ]        [ ] 16 |-- SD2
+                               SD1 --| 22 [ ]        [ ] 17 |-- SD3
+                               SDD --| 21 [ ]        [ ] 18 |-- CMD
+                               CLK --| 20 [ ]        [ ] 19 |-- 5V      (VIN / 5V In)
+                           +----------USB---------+
 ```
 
 ### Complete Pin Connections
 
-| Module | Pin | 38-Pin ESP32 Pin | Purpose & Electrical Requirement |
+| Module | Pin | 38-Pin ESP32 Pin (Silkscreen) | Purpose & Electrical Requirement |
 |---|---|---|---|
-| **Analog pH Probe** | `SIG` / `AO` | **`D34`** (GPIO 34) | In series through **10kΩ protection resistor** (protects ADC1_CH6) |
-| | `VCC` | `VIN` (5V) | Powered from 5V rail |
-| | `GND` | `GND` | Common ground rail |
-| **MAX485 Converter** | `RO` (RX) | **`RX2`** (GPIO 16) | Hardware UART2 Receive line |
-| | `DI` (TX) | **`TX2`** (GPIO 17) | Hardware UART2 Transmit line |
-| | `DE` & `RE` | **`D4`** (GPIO 4) | Jumpered together (High = Transmit, Low = Receive) |
-| | `VCC` | `VIN` (5V) | TTL Transceiver power |
-| | `GND` | `GND` | Common ground rail |
+| **Analog pH Probe** | `SIG` / `AO` | **`P34`** (GPIO 34, Pin 5) | In series through **10kΩ protection resistor** (protects ADC1_CH6) |
+| | `VCC` | **`5V`** (VIN, Pin 19) | Powered from 5V rail |
+| | `GND` | **`GND`** (Pin 14 / 32 / 38) | Common ground rail |
+| **MAX485 Converter** | `RO` (RX) | **`P16`** (RX2 / GPIO 16, Pin 27) | Hardware UART2 Receive line |
+| | `DI` (TX) | **`P17`** (TX2 / GPIO 17, Pin 28) | Hardware UART2 Transmit line |
+| | `DE` & `RE` | **`P4`** (GPIO 4, Pin 26) | Jumpered together (High = Transmit, Low = Receive) |
+| | `VCC` | **`5V`** (VIN, Pin 19) | TTL Transceiver power |
+| | `GND` | **`GND`** (Pin 14 / 32 / 38) | Common ground rail |
 | | `A` & `B` | NPK Sensor `A` & `B` | Differential RS485 twisted-pair |
 | **NPK Sensor (3-Prong)** | Brown Wire | **12V DC (+)** | External 12V 1A/2A DC power supply |
 | | Black Wire | **12V DC (-)** | **CRITICAL: MUST bridge to ESP32 GND** |
 | | Yellow Wire | MAX485 `A` | RS485 Non-inverting data |
 | | Blue Wire | MAX485 `B` | RS485 Inverting data |
-| **DS18B20 Temp Probe** | `DATA` | **`D5`** (GPIO 5) | **4.7kΩ pull-up resistor** to 3.3V |
-| | `VCC` / `GND` | `3V3` / `GND` | 3.3V logic level |
-| **DHT11 Air Sensor** | `DATA` | **`D18`** (GPIO 18) | Single-bus digital temperature & humidity |
-| | `VCC` / `GND` | `3V3` / `GND` | 3.3V logic level |
-| **16×2 I2C LCD Display** | `SDA` | **`D21`** (GPIO 21) | Hardware I2C Data (`0x27`) |
-| | `SCL` | **`D22`** (GPIO 22) | Hardware I2C Clock |
-| | `VCC` / `GND` | `VIN` (5V) / `GND` | 5V supply for display contrast & backlight |
+| **DS18B20 Temp Probe** | `DATA` | **`P5`** (GPIO 5, Pin 29) | **4.7kΩ pull-up resistor** to 3.3V (`3V3`, Pin 1) |
+| | `VCC` / `GND` | **`3V3`** (Pin 1) / **`GND`** | 3.3V logic level |
+| **DHT11 Air Sensor** | `DATA` | **`P18`** (GPIO 18, Pin 30) | Single-bus digital temperature & humidity |
+| | `VCC` / `GND` | **`3V3`** (Pin 1) / **`GND`** | 3.3V logic level |
+| **16×2 I2C LCD Display** | `SDA` | **`P21`** (GPIO 21, Pin 33) | Hardware I2C Data (`0x27`) |
+| | `SCL` | **`P22`** (GPIO 22, Pin 36) | Hardware I2C Clock |
+| | `VCC` / `GND` | **`5V`** (VIN, Pin 19) / **`GND`** | 5V supply for display contrast & backlight |
 
 *For complete wiring diagrams and step-by-step assembly, see [`docs/setup.md`](docs/setup.md).*
 
