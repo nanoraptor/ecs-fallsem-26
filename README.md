@@ -54,94 +54,92 @@
 > This system is built specifically for the **38-Pin ESP32 NodeMCU (DevKitC V4 / NodeMCU-32S)**.  
 > **Do NOT use the 30-Pin DevKit V1** — pinout locations and header assignments differ.
 
-### 38-Pin ESP32 Header Diagram (NodeMCU ESP-32S)
+### 38-Pin ESP32 Header Diagram
 
-Below is the pinout matching your **ESP-32S NodeMCU V1.1 (38-Pin)** board.  
-Both the **Top (Breadboard View)** and the **Bottom (Silkscreen View as printed on the back)** are provided for easy reference:
+This is the **top view** (component side up, USB at the bottom). The labels printed on the back of the board appear mirrored (left and right swapped) compared with this view.
 
-#### Top View (Component & Breadboard View)
 ```text
-                         38-PIN ESP32 NodeMCU (ESP-32S)
-                             TOP VIEW (BREADBOARD)
-                               [ Antenna Area ]
-                           +----------------------+
-                     3V3 --|  1 [ ]        [ ] 38 |-- GND (Common Ground)
-                      EN --|  2 [ ]        [ ] 37 |-- P23 (GPIO 23)
-       (GPIO 36)     SVP --|  3 [ ]        [ ] 36 |-- P22 (GPIO 22) -> LCD SCL
-       (GPIO 39)     SVN --|  4 [ ]        [ ] 35 |-- TX  (GPIO 1 / TX0)
-pH In  (GPIO 34)     P34 --|  5 [ ]        [ ] 34 |-- RX  (GPIO 3 / RX0)
-                     P35 --|  6 [ ]        [ ] 33 |-- P21 (GPIO 21) -> LCD SDA
-                     P32 --|  7 [ ]        [ ] 32 |-- GND (Ground)
-                     P33 --|  8 [ ]        [ ] 31 |-- P19 (GPIO 19)
-                     P25 --|  9 [ ]        [ ] 30 |-- P18 (GPIO 18) -> DHT11 Data
-                     P26 --| 10 [ ]        [ ] 29 |-- P5  (GPIO 5)  -> DS18B20 Temp
-                     P27 --| 11 [ ]        [ ] 28 |-- P17 (GPIO 17) -> MAX485 DI (TX2)
-                     P14 --| 12 [ ]        [ ] 27 |-- P16 (GPIO 16) -> MAX485 RO (RX2)
-                     P12 --| 13 [ ]        [ ] 26 |-- P4  (GPIO 4)  -> MAX485 DE+RE
-                     GND --| 14 [ ]        [ ] 25 |-- P0  (GPIO 0 / Boot)
-                     P13 --| 15 [ ]        [ ] 24 |-- P2  (GPIO 2 / Onboard LED)
-                     SD2 --| 16 [ ]        [ ] 23 |-- P15 (GPIO 15)
-                     SD3 --| 17 [ ]        [ ] 22 |-- SD1 (Flash SD1)
-                     CMD --| 18 [ ]        [ ] 21 |-- SDD (Flash SD0)
-5V In / VIN           5V --| 19 [ ]        [ ] 20 |-- CLK (Flash CLK)
-                           +----------USB---------+
+                                                  ┌────────────────────────┐
+                                                  │     ESP-32S module     │
+                                                  │   (antenna end, top)   │
+                                                  ├────────────────────────┤
+  3V3 rail (DS18B20, DHT11, 4.7k pull-up) ──  3V3 │  1                   1 │ GND  ── Digital GND rail (LCD, MAX485, 12V -, DHT11, DS18B20)
+                                               EN │  2                   2 │ D23
+                                               VP │  3                   3 │ D22  ── LCD SCL
+                                               VN │  4                   4 │ TX0
+         pH module AO/SIG, via 10k series ──  D34 │  5                   5 │ RX0
+                                              D35 │  6                   6 │ D21  ── LCD SDA
+                                              D32 │  7                   7 │ GND  ── Digital GND (spare, same rail)
+                                              D33 │  8                   8 │ D19
+                                              D25 │  9                   9 │ D18  ── DHT11 DATA
+                                              D26 │ 10                  10 │ D5   ── DS18B20 DATA (+4.7k to 3V3)
+                                              D27 │ 11                  11 │ D17  ── MAX485 DI  (TX2)
+                                              D14 │ 12                  12 │ D16  ── MAX485 RO  (RX2)
+                                              D12 │ 13                  13 │ D4   ── MAX485 DE + RE (jumpered)
+    pH module GND ONLY (clean analog GND) ──  GND │ 14                  14 │ D0
+                                              D13 │ 15                  15 │ D2
+                                              SD2 │ 16                  16 │ D15
+                                              SD3 │ 17                  17 │ SD1
+                                             CMD* │ 18                  18 │ SD0
+                5V rail (pH, MAX485, LCD) ──   5V │ 19                  19 │ CLK
+                                                  ├────────────────────────┤
+                                                  │        [ USB ]         │
+                                                  └────────────────────────┘
 ```
 
-#### Bottom View (Silkscreen View on Underside of PCB)
-*(Matches the silkscreen text printed on the back of your board)*
-```text
-                         38-PIN ESP32 NodeMCU (ESP-32S)
-                       BOTTOM VIEW (SILKSCREEN / BACK)
-                               [ Antenna Area ]
-                           +----------------------+
-         (Common Ground) GND --| 38 [ ]        [ ]  1 |-- 3V3
-                    (GPIO 23) P23 --| 37 [ ]        [ ]  2 |-- EN
-            LCD SCL <- (GPIO 22) P22 --| 36 [ ]        [ ]  3 |-- SVP     (GPIO 36)
-             TX0 / GPIO 1 <-  TX  --| 35 [ ]        [ ]  4 |-- SVN     (GPIO 39)
-             RX0 / GPIO 3 <-  RX  --| 34 [ ]        [ ]  5 |-- P34     (GPIO 34) -> pH In
-            LCD SDA <- (GPIO 21) P21 --| 33 [ ]        [ ]  6 |-- P35
-                    (Ground) GND --| 32 [ ]        [ ]  7 |-- P32
-                    (GPIO 19) P19 --| 31 [ ]        [ ]  8 |-- P33
-         DHT11 Data <- (GPIO 18) P18 --| 30 [ ]        [ ]  9 |-- P25
-       DS18B20 Temp <- (GPIO 5)  P5  --| 29 [ ]        [ ] 10 |-- P26
-       MAX485 DI (TX2) <- (GPIO 17) P17 --| 28 [ ]        [ ] 11 |-- P27
-       MAX485 RO (RX2) <- (GPIO 16) P16 --| 27 [ ]        [ ] 12 |-- P14
-     MAX485 DE+RE <- (GPIO 4)  P4  --| 26 [ ]        [ ] 13 |-- P12
-                    (GPIO 0)  P0  --| 25 [ ]        [ ] 14 |-- GND     (Ground)
-                    (GPIO 2)  P2  --| 24 [ ]        [ ] 15 |-- P13
-                    (GPIO 15) P15 --| 23 [ ]        [ ] 16 |-- SD2
-                               SD1 --| 22 [ ]        [ ] 17 |-- SD3
-                               SDD --| 21 [ ]        [ ] 18 |-- CMD
-                               CLK --| 20 [ ]        [ ] 19 |-- 5V      (VIN / 5V In)
-                           +----------USB---------+
-```
+`*` The pin just above `5V` may be silkscreened `GND` on some boards, but it is `CMD` on standard 38-pin boards. Do not use it.  
+`VP` = GPIO36, `VN` = GPIO39, `TX0` = GPIO1, `RX0` = GPIO3, `D17` = TX2, `D16` = RX2.
 
 ### Complete Pin Connections
 
-| Module | Pin | 38-Pin ESP32 Pin (Silkscreen) | Purpose & Electrical Requirement |
-|---|---|---|---|
-| **Analog pH Probe** | `SIG` / `AO` | **`P34`** (GPIO 34, Pin 5) | In series through **10kΩ protection resistor** (protects ADC1_CH6) |
-| | `VCC` | **`5V`** (VIN, Pin 19) | Powered from 5V rail |
-| | `GND` | **`GND`** (Pin 14 / 32 / 38) | Common ground rail |
-| **MAX485 Converter** | `RO` (RX) | **`P16`** (RX2 / GPIO 16, Pin 27) | Hardware UART2 Receive line |
-| | `DI` (TX) | **`P17`** (TX2 / GPIO 17, Pin 28) | Hardware UART2 Transmit line |
-| | `DE` & `RE` | **`P4`** (GPIO 4, Pin 26) | Jumpered together (High = Transmit, Low = Receive) |
-| | `VCC` | **`5V`** (VIN, Pin 19) | TTL Transceiver power |
-| | `GND` | **`GND`** (Pin 14 / 32 / 38) | Common ground rail |
+| Module | Pin | 38-Pin ESP32 Pin | Purpose & Electrical Requirement |
+| --- | --- | --- | --- |
+| **Analog pH Probe** | `SIG` / `AO` | **`D34`** (GPIO 34) | In series through **10kΩ protection resistor** (protects ADC1_CH6) |
+| | `VCC` | `VIN` (5V) | Powered from 5V rail |
+| | `GND` | **`GND` (left header, row 14)** | **Dedicated clean analog ground: pH sensor only.** Do not share this pin with any other module (see [Grounding](#grounding-star-ground-layout)) |
+| **MAX485 Converter** | `RO` (RX) | **`RX2`** (GPIO 16) | Hardware UART2 Receive line |
+| | `DI` (TX) | **`TX2`** (GPIO 17) | Hardware UART2 Transmit line |
+| | `DE` & `RE` | **`D4`** (GPIO 4) | Jumpered together (High = Transmit, Low = Receive) |
+| | `VCC` | `VIN` (5V) | TTL Transceiver power |
+| | `GND` | Digital `GND` rail | Digital / power ground (right header `GND`) |
 | | `A` & `B` | NPK Sensor `A` & `B` | Differential RS485 twisted-pair |
 | **NPK Sensor (3-Prong)** | Brown Wire | **12V DC (+)** | External 12V 1A/2A DC power supply |
-| | Black Wire | **12V DC (-)** | **CRITICAL: MUST bridge to ESP32 GND** |
+| | Black Wire | **12V DC (-)** | **CRITICAL: MUST bridge to the Digital `GND` rail (ESP32 GND)** |
 | | Yellow Wire | MAX485 `A` | RS485 Non-inverting data |
 | | Blue Wire | MAX485 `B` | RS485 Inverting data |
-| **DS18B20 Temp Probe** | `DATA` | **`P5`** (GPIO 5, Pin 29) | **4.7kΩ pull-up resistor** to 3.3V (`3V3`, Pin 1) |
-| | `VCC` / `GND` | **`3V3`** (Pin 1) / **`GND`** | 3.3V logic level |
-| **DHT11 Air Sensor** | `DATA` | **`P18`** (GPIO 18, Pin 30) | Single-bus digital temperature & humidity |
-| | `VCC` / `GND` | **`3V3`** (Pin 1) / **`GND`** | 3.3V logic level |
-| **16×2 I2C LCD Display** | `SDA` | **`P21`** (GPIO 21, Pin 33) | Hardware I2C Data (`0x27`) |
-| | `SCL` | **`P22`** (GPIO 22, Pin 36) | Hardware I2C Clock |
-| | `VCC` / `GND` | **`5V`** (VIN, Pin 19) / **`GND`** | 5V supply for display contrast & backlight |
+| **DS18B20 Temp Probe** | `DATA` | **`D5`** (GPIO 5) | **4.7kΩ pull-up resistor** to 3.3V |
+| | `VCC` / `GND` | `3V3` / Digital `GND` rail | 3.3V logic level |
+| **DHT11 Air Sensor** | `DATA` | **`D18`** (GPIO 18) | Single-bus digital temperature & humidity |
+| | `VCC` / `GND` | `3V3` / Digital `GND` rail | 3.3V logic level |
+| **16×2 I2C LCD Display** | `SDA` | **`D21`** (GPIO 21) | Hardware I2C Data (`0x27`) |
+| | `SCL` | **`D22`** (GPIO 22) | Hardware I2C Clock |
+| | `VCC` / `GND` | `VIN` (5V) / Digital `GND` rail | 5V supply for display contrast & backlight |
 
-*For complete wiring diagrams and step-by-step assembly, see [`docs/setup.md`](docs/setup.md).*
+### Grounding (Star Ground Layout)
+
+The glass-bulb pH probe is a very sensitive analog instrument: a change of only about 59 mV shifts the reading by one full pH unit. If high-current or switching loads (the LCD backlight, the MAX485 transceiver, the 12V NPK supply) share the same ground track as the pH module, their switching currents cause small voltage drops ("ground bounce") that corrupt the ADC reference and make the pH reading fluctuate.
+
+Therefore the pH module's `GND` **must go to its own, separate GND pin on the ESP32**, and everything else goes to a different GND pin:
+
+| Ground group | ESP32 GND pin | Connect only these |
+| --- | --- | --- |
+| **Clean analog ground** | Left header, row 14 (below `D12`) | pH module `GND` |
+| **Digital / power ground** | Right header, row 1 (top right), or row 7 (middle right) | Breadboard negative rail for: 16×2 LCD `GND`, MAX485 `GND`, external 12V supply `GND` (NPK black wire), DHT11 `GND`, DS18B20 `GND` |
+
+```text
+ pH module GND  ───────────────►  ESP32 GND (left header, row 14)       [clean analog ground]
+
+ LCD GND ─────┐
+ MAX485 GND ──┤
+ 12V supply − ┼──► breadboard (−) rail ──► ESP32 GND (right header, row 1 or 7)   [digital/power ground]
+ DHT11 GND ───┤
+ DS18B20 GND ─┘
+```
+
+> [!NOTE]
+> All `GND` pins on the ESP32 board are connected together internally. Using separate pins does not isolate the grounds. It keeps the noisy return currents from flowing through the same wire or breadboard track as the pH signal reference. The 12V supply negative must still be tied to the ESP32 ground (through the digital `GND` rail) so that all signals share a common reference.
+
+*For complete wiring diagrams and step-by-step assembly, see [`docs/setup.md`](docs/setup.md) and [`docs/wiring.md`](docs/wiring.md).*
 
 ---
 
@@ -199,6 +197,7 @@ The web interface (`app/templates/dashboard.html`) is structured into 3 distinct
 │   └── esp32_test/                # Standalone diagnostic sketches (read_npk, test_ph)
 ├── docs/
 │   ├── setup.md                   # Complete 38-Pin ESP32 wiring & calibration guide
+│   ├── wiring.md                  # Detailed pinout & star grounding guide
 │   └── component_list.md          # Bill of materials and hardware specifications
 ├── README.md                      # Primary project documentation
 └── repo.zip                       # Synchronized repository archive
@@ -209,17 +208,20 @@ The web interface (`app/templates/dashboard.html`) is structured into 3 distinct
 ## Installation & Quickstart
 
 ### 1. Clone or Extract the Repository
+
 ```bash
 git clone https://github.com/nanoraptor/SoilSage.git
 cd SoilSage
 ```
 
 ### 2. Install Python Dependencies
+
 ```bash
 python3 -m pip install pandas joblib pyserial scikit-learn flask
 ```
 
 ### 3. Flash the 38-Pin ESP32 Firmware
+
 1. Open [`esp32/esp32_full_serial/esp32_full_serial.ino`](esp32/esp32_full_serial/esp32_full_serial.ino) in Arduino IDE.
 2. Select **Board:** `ESP32 Dev Module` and your serial port (`/dev/ttyUSB0` or `COM3`).
 3. Click **Upload** ($\rightarrow$).
@@ -241,6 +243,7 @@ python3 app/app.py --sim
 # Wi-Fi Mode (Receives HTTP POST payloads from ESP32)
 python3 app/app.py --esp32
 ```
+
 Open **`http://127.0.0.1:5000`** in your browser.  
 *(Press `Ctrl + Shift + R` for a clean cache reload).*
 
@@ -299,7 +302,7 @@ python3 scripts/ser_script.py --port=/dev/ttyUSB0
 ### Web App (`app/app.py`)
 
 | Flag | Description |
-|---|---|
+| --- | --- |
 | *(no flags)* | Starts in **SIM** (simulation) mode by default. |
 | `--sim` | Explicitly starts in **SIM** mode. |
 | `--serial` | Starts in **SERIAL** mode and auto-detects active port (`/dev/ttyUSB*`). |
@@ -320,6 +323,7 @@ $$g(E[y]) = \beta_0 + \sum_{j=1}^{M} f_j(x_j) + \sum_{i \ne j} f_{ij}(x_i, x_j)$
 - **Input Dimensions (7):** `Nitrogen`, `phosphorus`, `potassium`, `temperature`, `humidity`, `ph`, `rainfall`.
 - **Crops Supported (22):** Rice, Maize, Chickpea, Kidneybeans, Pigeonpeas, Mothbeans, Mungbean, Blackgram, Lentil, Pomegranate, Banana, Mango, Grapes, Watermelon, Muskmelon, Apple, Orange, Papaya, Coconut, Cotton, Jute, Coffee.
 - **Model Re-training:**
+
   ```bash
   python3 ml/training/train_ebm.py
   ```
@@ -329,12 +333,19 @@ $$g(E[y]) = \beta_0 + \sum_{j=1}^{M} f_j(x_j) + \sum_{i \ne j} f_{ij}(x_i, x_j)$
 ## Troubleshooting & FAQ
 
 #### 1. Why does the dashboard say "ESP32 frozen or disconnected"?
+
 The Arduino IDE Serial Monitor is likely open. In Linux, only one application can access `/dev/ttyUSB0` at a time. Close the Serial Monitor tab in Arduino IDE, then restart `python3 app/app.py --serial`.
 
 #### 2. Why does the dashboard say "NPK Sensor Disconnected"?
+
 1. Check that the external **12V DC power supply ground is connected to the ESP32 GND** (Common Ground).
 2. Check MAX485 connections: `RO` $\rightarrow$ `RX2` (GPIO 16), `DI` $\rightarrow$ `TX2` (GPIO 17), `DE/RE` tied together to `D4` (GPIO 4).
 3. Verify that the sensor is receiving at least 9V–12V DC power.
 
 #### 3. Why does the screen say "Please insert soil sample"?
+
 When the sensor prongs are dry or in air, conductivity is 0 ($N=0, P=0, K=0$). SoilSage intentionally suppresses default crop predictions. Insert the prongs firmly into a moist soil sample to obtain live agronomic recommendations.
+
+#### 4. Why does the pH reading jump around or drift?
+
+Check the grounding first. The pH module `GND` must be on its own ESP32 GND pin (left header, row 14), separate from the LCD, MAX485, 12V supply, DHT11 and DS18B20 grounds (see [Grounding](#grounding-star-ground-layout)). Also keep the pH wires short and away from the RS485 and 12V wiring, and make sure the probe is calibrated with the pH 4.0, 7.0 and 9.2 buffers.

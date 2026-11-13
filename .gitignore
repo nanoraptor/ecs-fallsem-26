@@ -23,6 +23,9 @@ var/
 venv/
 ENV/
 
+#Others
+Others/
+
 # Arduino
 build/
 *.hex
